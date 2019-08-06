@@ -12,14 +12,15 @@
 /*
  *  MODS - перечисление различных способов интегрирования функции
  *  поля:
- *      QUADRATE - интегрирование методом усейченных трапеций
+ *      QUADRATE - интегрирование методом усейченных трапеций (или методом прямоугольников)
  *      SIMPSON -
- *      TRAP -
+ *      TRAP -      интегрирование методом усейченных трапеций
  */
 enum MODS {
     QUADRATE,
     SIMPSON,
-    TRAP
+    TRAP,
+    MONTE_CARLO
 };
 
 /*
@@ -39,8 +40,15 @@ enum MODS {
 struct integrate_parametrs{
     double left_limit;
     double right_limit;
-    double dx;
+    union {
+        double dx;
+        double eps; //для метода монте-карло
+    };
     size_t N;
+
+    // для метода монте-карло
+    double function_supremum;
+    double function_infinum;
 };
 
 /*
