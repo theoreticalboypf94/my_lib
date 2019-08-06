@@ -1,0 +1,8 @@
+//
+// Created by alpharius on 06.08.19.
+//
+
+#ifndef FURIER_TRANSFORM_INTERPOLATE_H
+#define FURIER_TRANSFORM_INTERPOLATE_H
+
+#endif //FURIER_TRANSFORM_INTERPOLATE_H
