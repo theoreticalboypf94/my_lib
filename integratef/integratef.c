@@ -21,15 +21,14 @@ double integratef(double (*f)(double), struct integrate_parametrs* PARAM,
         case QUADRATE:
             // не путать с TRAP разные методы, разные порядки точности
             goto quadrate_integration;
-            break;
         case SIMPSON:
             goto simpson_integration;
-            break;
         case TRAP:
             goto trap_integration;
-            break;
         case MONTE_CARLO:
             goto monte_carlo_integration;
+        case THREE_EIGHT:
+            goto three_eight_integration;
     }
 
     //  интегрирование методом усредненный трапеций
@@ -145,7 +144,31 @@ double integratef(double (*f)(double), struct integrate_parametrs* PARAM,
                 int_sum_deltha = 1.;
             }
         }
-        return s1;
+        result = s1;
+        return result;
+    }
+
+    {
+        three_eight_integration:;
+        double ll = PARAM->left_limit;
+        double rl = PARAM->right_limit;
+        double dx;
+
+        // шаг интегрирования - либо мы его вычисляем
+        if (PARAM->N == 0){
+            dx = PARAM->dx;
+        } else {
+            dx = (rl - ll) / PARAM->N;
+        }
+
+        double x = ll;
+        // проверить на корректность аргумента! (вроде так но может быть и
+        // x , x+dx x+2dx x+3dx
+        while (x<rl){
+            result += 3./8. * (f(x) + 3*f(x+dx/3) + 3*f(x + 2./3 * dx) + f(x+dx))*dx;
+            x += dx;
+        }
+        return result;
     }
 }
 

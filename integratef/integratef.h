@@ -23,7 +23,8 @@ enum MODS {
     QUADRATE,
     SIMPSON,
     TRAP,
-    MONTE_CARLO
+    MONTE_CARLO,
+    THREE_EIGHT
 };
 
 /*
