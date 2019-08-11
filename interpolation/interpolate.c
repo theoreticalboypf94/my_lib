@@ -28,7 +28,7 @@ double Lagrange_polinom_interpolation(double x, double* x_set, double* y_set, si
 
 
 
-#ifdef TEST
+#ifdef TEST2
 #define SIZE 50
 
 int main(void){

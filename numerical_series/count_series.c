@@ -16,7 +16,7 @@ double count_series(size_t N, double (*law_fun)(size_t)){
 }
 
 
-#define TEST
+#define TEST2
 #ifdef TEST
 
 double f(size_t i){
