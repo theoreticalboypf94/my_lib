@@ -18,6 +18,7 @@ double integratef(double (*f)(double), struct integrate_parametrs* PARAM,
         enum MODS MD){
     double result = 0.;
     switch (MD){
+        // menu bar
         case QUADRATE:
             // не путать с TRAP разные методы, разные порядки точности
             goto quadrate_integration;
@@ -44,7 +45,6 @@ double integratef(double (*f)(double), struct integrate_parametrs* PARAM,
         } else {
             dx = (rl - ll) / PARAM->N;
         }
-
         double x = ll;
         while(x<rl){
             result += f(x + dx/2) * dx; // усредненный прямоугольник
@@ -71,6 +71,7 @@ double integratef(double (*f)(double), struct integrate_parametrs* PARAM,
             result += dx / 6 * ( f(x) + 4*f(x+dx/2) + f(x+dx));
             x += dx;
         }
+        return result;
     }
 
     {
@@ -87,8 +88,9 @@ double integratef(double (*f)(double), struct integrate_parametrs* PARAM,
         double x = ll;
         while (x<rl){
             result += (f(x) + f(x+dx))/2 * dx;
+            x += dx;
         }
-
+        return result;
     }
 
     {
@@ -165,7 +167,9 @@ double integratef(double (*f)(double), struct integrate_parametrs* PARAM,
         // проверить на корректность аргумента! (вроде так но может быть и
         // x , x+dx x+2dx x+3dx
         while (x<rl){
-            result += 3./8. * (f(x) + 3*f(x+dx/3) + 3*f(x + 2./3 * dx) + f(x+dx))*dx;
+            // дело просто в нотации у англо-саксов dx = 3h - отсюда 3 восьмых и получается
+            // коэф. 1/8 верен
+            result += 1./8. * (f(x) + 3*f(x+dx/3) + 3*f(x + 2./3 * dx) + f(x+dx))*dx;
             x += dx;
         }
         return result;
