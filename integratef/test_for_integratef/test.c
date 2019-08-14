@@ -11,10 +11,14 @@
  *      в) дает учет ошибок (путем перекрестного сравнения наличных результатов с аналитическими
  *
  * Билд ров:
- *      gcc -c integratef.c
- *      gcc -lm test.c integratef.o
+ *      gcc  test.c ../integratef.c -lm
+ *
+ *  Выводы:
+ *      Методы работают нормально - разве что для Монте-Карло. Требуется более точная настройка
+ *      на супринум и инфинум функции - иначе обречены на неправильный ответ
+ *
  */
-#define SIZE 4
+#define SIZE 3
 
 double f0(double);
 double f1(double);
@@ -23,14 +27,13 @@ double f3(double);
 
 typedef double (*fptr)(double); // указатель на фукции
 
-fptr fun_arr[] = {f0, f1, f2, f3};
-char* fun_name[] = {"e**(-x**2)", "cos(sin(x))", "e**cos(x)", "x**3"};
+fptr fun_arr[] = {f0, f1, f2};
+char* fun_name[] = {"e**(-x**2)", "cos(sin(x))", "e**cos(x)"};
 // посчитано на вольфрам-альфа
-double analitical_results[] = {1.77245, 7.5292, 10.3669 ,0};
+double analitical_results[] = {1.77245, 7.5292, 10.3669 };
 
 typedef struct integrate_parametrs t_IP;
 static t_IP* g_ip;
-
 
 void initialize_ip(struct integrate_parametrs* _ip, double left_limit,
         double right_limit, double dx, size_t N,
@@ -47,7 +50,7 @@ int main(void){
 
     printf("| function\t | original\t | QUAD\t\t | SIMPS\t | TRAP\t\t | MONTE-CARLO\t | 3/8\t\t | \n");
     g_ip = (t_IP*) malloc(sizeof(t_IP));
-    initialize_ip(g_ip, -5, 5, 0, 1000, 1, 0);
+    initialize_ip(g_ip, -5, 5, 0, 10000, 1, 0); // хорошо бы эти вещи настраивать отдельно
 
     for(size_t i=0; i<SIZE; i++) {
         double or = analitical_results[i];
@@ -75,6 +78,3 @@ double f2(double x){
     return exp(cos(x));
 }
 
-double f3(double x){
-    return x*x*x;
-}
