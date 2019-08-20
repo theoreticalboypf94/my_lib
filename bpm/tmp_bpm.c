@@ -106,7 +106,7 @@ void save_bitmap(const char *file_name, int width, int height, int dpi, struct r
     fclose(image);
 }
 
-#define TEST
+#define NTEST
 #ifdef TEST
 int main(void){
     int width  = 400,
@@ -119,7 +119,7 @@ int main(void){
         for (int y = 0; y < height; y++) {
             int a = y * width + x;
 
-            if ((x > 50 && x < 350) && (y > 50 && y < 350)) {
+            if ((x > 50 && x < 350) && ( y < 350)) {
                 pixels[a].r = rand()%255;
                 pixels[a].g = rand()%255;
                 pixels[a].b = rand()%255;
