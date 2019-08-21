@@ -9,6 +9,7 @@
 #include <float.h>
 
 extern void save_bitmap(const char *file_name, int width, int height, int dpi, struct rgb_data *pixel_data);
+//typedef struct rgb_data rgb;
 typedef struct rgb_data rgb;
 
 #define ACCESS(ptr,size,i,j) (*(ptr + j + size*i))
@@ -29,6 +30,17 @@ void init_graph(rgb* ptr, size_t size){
             ACCESS(ptr, size, i, j).b = 255;
         }
     }
+}
+
+void print_dot(rgb* ptr, size_t size, size_t i, size_t j){
+    // произвожу инвертирование по индексу - ведь наростание
+    // в битовой карте проходит слева на право сверху вниз
+
+    i = size - i;
+    j = j - size/2;
+    ACCESS(ptr, size, i, j).r = 0;
+    ACCESS(ptr, size, i, j).g = 0;
+    ACCESS(ptr, size, i, j).b = 0;
 }
 
 
@@ -63,40 +75,37 @@ void draw_graphic(const char *input_file, int size){
     free(X);
     free(Y);
 
-    X = (double*) malloc(number_of_dots);
-    Y = (double*) malloc(number_of_dots);
+    X = (double*) malloc(number_of_dots*sizeof(double));
+    Y = (double*) malloc(number_of_dots*sizeof(double));
 
     rewind(fp);
     while(!feof(fp)){
         // записываем и инкрементируем указатель
         // конечный offset = number_of_dots
-        fscanf(fp, "%lf %lf", X, Y);
-        X++;
-        Y++;
+        fscanf(fp, "%lf %lf", X++, Y++);
+        //X++;
+        //Y++;
     }
+    // возвращение на исходную позицию
     X = X - number_of_dots;
     Y = Y - number_of_dots;
+
     printf("sizeof rgb = %ld\n", sizeof(rgb));
-    rgb *image = (rgb*) malloc(size*size*12);
-//    init_graph(image, size);
+    rgb *image = (rgb*) malloc(size*size*sizeof(rgb));
+    init_graph(image, size);
     // производим маштабирование по наибольшей из размерности
     // это позволит всегда помещать график внутри изображения
     double pixel_scale = (((SUP - INF) > (RL - LL))? (SUP - INF) : (RL - LL)) / size;
     printf("pixel_scale = %lf\n", pixel_scale);
-//    X = X - number_of_dots;
-//    Y = Y - number_of_dots;
-//    for(size_t dots=0; dots<number_of_dots; dots++){
-//        size_t index_x = (int) *(X+dots)/pixel_scale;
-//        size_t index_y = (int) size - *(Y+dots)/pixel_scale;
-//        //printf("%lf %d\n", *(X+dots), index_y);
-//        //BLACK(image, size, index_x, index_y);
-//        (ACCESS(image, size, index_x, index_y)).r = 0;
-//        (ACCESS(image, size, index_x, index_y)).g = 0;
-//        (ACCESS(image, size, index_x, index_y)).b = 0;
-//    }
-//
-//    save_bitmap("test.bmp", size, size, 1000, image);
     fclose(fp);
+
+    for(int dot=0; dot<number_of_dots; dot++){
+        size_t ind_x = *(X+dot)/pixel_scale;
+        size_t ind_y = /*size -*/ *(Y+dot)/pixel_scale;
+
+        print_dot(image, size, ind_y, ind_x);        
+    }
+    save_bitmap("test.bmp", size, size, 96, image);
 }
 
 

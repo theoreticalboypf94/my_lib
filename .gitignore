@@ -1,6 +1,7 @@
 graph*
 cmake-build-debug
 .idea
+test*
 
 # Prerequisites
 *.d
