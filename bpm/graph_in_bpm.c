@@ -36,8 +36,8 @@ void print_dot(rgb* ptr, size_t size, size_t i, size_t j){
     // произвожу инвертирование по индексу - ведь наростание
     // в битовой карте проходит слева на право сверху вниз
 
-    i = size - i;
-    j = j - size/2;
+    //i = size - i;
+    //j = j - size/2;
     ACCESS(ptr, size, i, j).r = 0;
     ACCESS(ptr, size, i, j).g = 0;
     ACCESS(ptr, size, i, j).b = 0;
@@ -71,7 +71,6 @@ void draw_graphic(const char *input_file, int size){
         if (*Y < INF) {INF = *Y;}
         number_of_dots++;
     }
-    printf("number_of_dots = %ld\n", number_of_dots);
     free(X);
     free(Y);
 
@@ -90,18 +89,20 @@ void draw_graphic(const char *input_file, int size){
     X = X - number_of_dots;
     Y = Y - number_of_dots;
 
-    printf("sizeof rgb = %ld\n", sizeof(rgb));
+    // изображение
     rgb *image = (rgb*) malloc(size*size*sizeof(rgb));
     init_graph(image, size);
     // производим маштабирование по наибольшей из размерности
     // это позволит всегда помещать график внутри изображения
     double pixel_scale = (((SUP - INF) > (RL - LL))? (SUP - INF) : (RL - LL)) / size;
-    printf("pixel_scale = %lf\n", pixel_scale);
+    //printf("pixel_scale = %lf\n", pixel_scale);
     fclose(fp);
 
     for(int dot=0; dot<number_of_dots; dot++){
-        size_t ind_x = *(X+dot)/pixel_scale;
-        size_t ind_y = /*size -*/ *(Y+dot)/pixel_scale;
+        // 0 соответствует центральному элементу size/2
+        size_t ind_x = -*(X+dot)/pixel_scale + size/2; 
+        // 0 соответствует size/2
+        size_t ind_y = size/2 - *(Y+dot)/pixel_scale;
 
         print_dot(image, size, ind_y, ind_x);        
     }
@@ -119,13 +120,11 @@ void draw_graphic(const char *input_file, int size){
 #include <math.h>
 
 int main(void){
-    printf("we are in main function");
-
     FILE *fp = fopen("test.txt", "w");
-    double x = 0, dx = M_PI/100;
+    double x = -M_PI, dx = 2*M_PI/100;
     double y;
     for(int i=0; i<100; i++){
-        y = sin(x);
+        y = (x>0)? x: 0;
         x+= dx;
         fprintf(fp, "%lf %lf\n", x, y);
     }
