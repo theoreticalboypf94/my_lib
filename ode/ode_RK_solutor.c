@@ -29,7 +29,8 @@
 #define FILENAME 80
 #define COMPILER 100
 #define STATEMENT 100
-#define FUN_HEAD "\n #include <math>\n"\
+#define FUN_HEAD "#include <stdio.h>\n"\
+"#include <stdlib.h>\n"\
 "typedef double (* _fp)(double); \n"\
 "void RK_4_solutor(double _from, double _to, double h, double *init_condition, _fp terms[]){\n"\
 
@@ -61,15 +62,35 @@ void ode_RK_solutor(size_t order, funp terms[], const struct t_rk_parametrs* opt
     snprintf(compiler, COMPILER, "gcc ./RK4/RK_4_solutor_order_%ld.c -shared -fPIC -o RESULT", order);
 
     char statement[STATEMENT];
-
     strcat(text, FUN_HEAD);
 
+    // initialize FILE variables
+    for(int i=0; i<order; i++){
+        snprintf(statement, STATEMENT, "\tFILE *fp_%d = fopen('solution_ode_order=%d.txt');\n", i, i);
+        strcat(text, statement);
+    }
 
+    // начало математики
+    strcat(text, snprintf("\t size_t _N = "))
+    strcat(text, "\t double x[]")
+    for(int i=0; i<order; i++){
+
+    }
+
+
+
+    // close FILE variables
+    for(int i=0; i<order; i++){
+        snprintf(statement, STATEMENT, "\tfclose(fp_%d);\n", i);
+        strcat(text, statement);
+    }
+
+    strcat(text, "}\n");
 
     printf("%s",text);
-
-
     FILE *fp = fopen(filename, "w");
+    fprintf(fp, "%s",text);
+    fclose(fp);
 
     system(compiler);
 }
