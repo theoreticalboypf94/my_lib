@@ -48,6 +48,7 @@ void initialize_ip(struct integrate_parametrs* _ip, double left_limit,
 
 int main(void){
 
+    printf("\fun_name All functions completed here: integrate from -5 to 5 and limited from 0 to 1 (to avoid MONTE-CARLO parametrs set).\n\n");
     printf("| function\t | original\t | QUAD\t\t | SIMPS\t | TRAP\t\t | MONTE-CARLO\t | 3/8\t\t | \n");
     g_ip = (t_IP*) malloc(sizeof(t_IP));
     initialize_ip(g_ip, -5, 5, 0, 10000, 1, 0); // хорошо бы эти вещи настраивать отдельно
@@ -62,6 +63,10 @@ int main(void){
         printf("| %s\t | %lf\t | %lf\t | %lf\t | %lf\t | %lf\t | %lf\t |\n", fun_name[i], analitical_results[i], qu, si,
                tr, mc, te);
     }
+
+
+
+    printf("\n\n MONTE_CARLO here not so precise method as we want, becouse fun sup & inf not equal 0 & 1 in each case\n");
     return 0;
 }
 
@@ -75,6 +80,7 @@ double f1(double x){
 }
 
 double f2(double x){
-    return exp(cos(x));
+    //cos - изменил для маштабирования
+    return (exp(cos(x))-exp(-1))/exp(1);
 }
 
