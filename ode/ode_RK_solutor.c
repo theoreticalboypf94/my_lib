@@ -9,7 +9,9 @@
  * void* handle = dlopen("./lib.so",RTLD_LAZY);
  * void* f = dlsym(handle, "your_f_name(symbol)");
  * (cast f to function pointer with right signature)
- *  and then
+ *
+ *  and then (when we have "dl.so" file) we can compile
+ *  our main.c with linking it:
  *  gcc main.c -ldl // -ldl -/dinamic linking/ aka dl.so
  *
  *  // avoid itoa
@@ -23,18 +25,21 @@
 #include <malloc.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <dlfcn.h>
 
 
 #define CHAR_BUFFER 10000
 #define FILENAME 80
 #define COMPILER 100
 #define STATEMENT 100
-#define FUN_HEAD "#include <stdio.h>\n"\
-"#include <stdlib.h>\n"\
-"typedef double (* _fp)(double); \n"\
-"void RK_4_solutor(double _from, double _to, double h, double *init_condition, _fp terms[]){\n"\
+#define INCLUDE_HEADERS "#include <stdio.h>\n"\
+"#include <stdlib.h>\n"
 
-#define FUN_END "\n}"
+
+
+#define FUNCTION_SIGNATURE "typedef double (* _fp)(double); \n"\
+"void RK_4_solutor(double _from, double _to, double h, double *init_condition, _fp terms[]){\n"
+
 
 /*
  *  y'' + F(x,y)y' + G(x,y)y = 0;
@@ -53,7 +58,7 @@
  *
  */
 
-void ode_RK_solutor(size_t order, funp terms[], const struct t_rk_parametrs* options ,double* init_condition){
+void ode_RK_solutor(size_t order, funp terms[], const struct t_rk_parametrs* integrate_limits ,double* init_condition){
     char text[CHAR_BUFFER]; //(char*) calloc(CHAR_BUFFER, sizeof(char));
     char filename[FILENAME];// = "pass";
     char compiler[COMPILER];// = "gcc RKRESULT.c -shared - fPIC -o RESULT";
@@ -62,17 +67,27 @@ void ode_RK_solutor(size_t order, funp terms[], const struct t_rk_parametrs* opt
     snprintf(compiler, COMPILER, "gcc ./RK4/RK_4_solutor_order_%ld.c -shared -fPIC -o RESULT", order);
 
     char statement[STATEMENT];
-    strcat(text, FUN_HEAD);
+    strcat(text, INCLUDE_HEADERS);
+
+    // add right function pointer typedef
+    sprintf(statement,"typedef double (*_FP)(");
+    strcat(text, statement);
+
+
+    strcat(text, FUNCTION_SIGNATURE);
 
     // initialize FILE variables
+    // сюда мы будем записывать эволюцию решения и всех ее производных
     for(int i=0; i<order; i++){
         snprintf(statement, STATEMENT, "\tFILE *fp_%d = fopen('solution_ode_order=%d.txt');\n", i, i);
         strcat(text, statement);
     }
 
     // начало математики
-    strcat(text, snprintf("\t size_t _N = "))
-    strcat(text, "\t double x[]")
+
+
+
+    //strcat(text, "\t double x[]")
     for(int i=0; i<order; i++){
 
     }
@@ -92,7 +107,7 @@ void ode_RK_solutor(size_t order, funp terms[], const struct t_rk_parametrs* opt
     fprintf(fp, "%s",text);
     fclose(fp);
 
-    system(compiler);
+    //system(compiler);
 }
 
 #undef FILENAME

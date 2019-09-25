@@ -16,6 +16,7 @@
  *
  */
 typedef double (*funp)(double);
+
 struct t_rk_parametrs {
     double from;
     double to;
