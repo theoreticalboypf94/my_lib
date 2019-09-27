@@ -70,10 +70,17 @@ void ode_RK_solutor(size_t order, funp terms[], const struct t_rk_parametrs* int
     strcat(text, INCLUDE_HEADERS);
 
     // add right function pointer typedef
+    strcat(text, "// pointer for systemm filleing\n");
     sprintf(statement,"typedef double (*_FP)(");
     strcat(text, statement);
+    for(int i=0; i<order+1; i++){
+        if(i == order){
+            strcat(text, "double* );\n");
+        } else {
+            strcat(text,"double*, ");
+        }
 
-
+    }
     strcat(text, FUNCTION_SIGNATURE);
 
     // initialize FILE variables
@@ -84,7 +91,24 @@ void ode_RK_solutor(size_t order, funp terms[], const struct t_rk_parametrs* int
     }
 
     // начало математики
-
+    strcat(text, "\tsize_t N = (size_t) (_to - _from)/h\n");
+    strcat(text, "\tdouble X[N]");
+    // форируем массивы для записи отчетов по производными
+    for(int i=0; i<order; i++){
+        if (i == order-1){
+            sprintf(statement,",Y_order_%d[N];\n", i);
+        } else {
+            sprintf(statement, ", Y_order_%d[N]", i);
+        }
+        strcat(text, statement);
+    }
+    // запись коэффициентов метода рунге-кунны 4 столбца и order столбцов
+    for(int j=0; j<order; j++){
+        strcat(text, "double ");
+        for(int i=1; i<5; i++){
+            sprintf("K_order_eq_%d__%d", j, i);
+        }
+    }
 
 
     //strcat(text, "\t double x[]")
