@@ -81,26 +81,29 @@ static void free_data(Matrix* M){
 
 // возвращаем матрицу - минор для переданной матрицы.
 static Matrix _minor(Matrix* M, size_t I, size_t J){
-    printf(" lfdjfl");
     assert(M != NULL);
     assert(M->height != 1 && M->width != 1); // иначе отыскание минора не имеет смысла.
     Matrix result = new_Matrix(M->height-1, M->width-1);
     for(size_t i=0; i<M->height; i++){
         for(size_t j=0; j<M->width; j++){
+            // использована неоптимальная форма
             if(i < I && j < J){
-                result.WRITE(&result, i, j, M->ACCESS(&M, i, j));
+                result.WRITE(&result, i, j, M->ACCESS(M, i, j));
             }
             if (i > I && j < J){
-                result.WRITE(&result, i-1, j, M->ACCESS(&M, i, j));
+                result.WRITE(&result, i-1, j, M->ACCESS(M, i, j));
             }
             if (i < I && j > J){
-                result.WRITE(&result, i, j-1, M->ACCESS(&M, i, j));
+                result.WRITE(&result, i, j-1, M->ACCESS(M, i, j));
             }
             if (i > I && j > J){
-                result.WRITE(&result, i-1, j-1, M->ACCESS(&M, i, j));
+                result.WRITE(&result, i-1, j-1, M->ACCESS(M, i, j));
             }
-            // потом проверить
-            // result.WRITE(&result, i-1*((int) (i>I)), j-1*((int) (j>J) , M->ACCESS(&M, i, j));
+//            if (i != I || j != J){
+//                // использована оптимальная форма
+//                result.WRITE(&result, i-1*((int) (i>I)), j-1*((int) (j>J)) , M->ACCESS(M, i, j));
+//            }
+
         }
     }
     return result;
