@@ -18,6 +18,8 @@ typedef struct matrix {
     void (*WRITE)(struct matrix*, size_t, size_t, double);
     struct matrix (*T)(struct matrix*);
     struct matrix (*MINOR)(struct matrix*, size_t, size_t);
+    struct matrix (*INVERSE)(struct matrix*);
+    struct matrix* (*ROW_OP)(struct matrix*, size_t, size_t, double);
 } Matrix;
 Matrix new_Matrix(size_t,size_t);
 

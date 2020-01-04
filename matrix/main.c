@@ -1,4 +1,4 @@
-#define DEBUG
+
 
 #include "Matrix.h"
 #include "Matrix_functions.h"
@@ -7,22 +7,31 @@
 
 
 int main(int argc, char** argv){
-    Matrix M = new_Matrix(3, 3);
-    M.WRITE(&M, 0,0, 1);
-    M.WRITE(&M, 1,1, 2);
-    M.WRITE(&M, 1,2, 3);
-    M.WRITE(&M, 2,2, 4);
+    Matrix M = new_Matrix(2, 2);
+    M.WRITE(&M, 0, 0, 5);
+    M.WRITE(&M, 1, 1, 10);
+    M.WRITE(&M, 0, 1, 3);
+    M.WRITE(&M, 1, 0, 3);
 
     M.PRINT(&M);
-    printf("\n");
-//    Matrix M2 = M.T(&M);
-//    M2.PRINT(&M2);
-//    printf("\n");
-//    M2 = M2.MINOR(&M2, 0, 2);
-//    M2.PRINT(&M2);
 
+    Matrix M_I = M.INVERSE(&M);
 
-    printf("\n %e \n",det(&M));
+    M_I.PRINT(&M_I);
+
+    Matrix R = MAT_MUL(&M, &M_I);
+    R.PRINT(&R);
+    R = MAT_MUL(&M_I, &M);
+    R.PRINT(&R);
+    R = M;
+    R.PRINT(&R);
+
+    printf("rov dev check \n");
+    M.ROW_OP(&M, 0, 1, -3./5);
+
+    M.PRINT(&M);
+
+    printf("\n %f \n",det(&M));
 
     return 0;
 }
