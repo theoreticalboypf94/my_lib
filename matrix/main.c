@@ -3,35 +3,25 @@
 #include "Matrix.h"
 #include "Matrix_functions.h"
 #include <stdio.h>
+#include <math.h>
 
 
 
 int main(int argc, char** argv){
-    Matrix M = new_Matrix(2, 2);
-    M.WRITE(&M, 0, 0, 5);
-    M.WRITE(&M, 1, 1, 10);
-    M.WRITE(&M, 0, 1, 3);
-    M.WRITE(&M, 1, 0, 3);
 
-    M.PRINT(&M);
+    Matrix M1 = READ_MAT_FF("/home/alpharius/Git/my_lib/matrix/mat.txt");
+    M1.PRINT(&M1);
 
-    Matrix M_I = M.INVERSE(&M);
+    printf("%f \n",det(&M1) );
 
-    M_I.PRINT(&M_I);
+//    M1.ROW_OP(&M1, 0, 1, 1);
+//    M1.ROW_OP(&M1, 1, 0, -1);
+//    M1.ROW_OP(&M1, 0, 1, 1);
+//    M1.ROW_OP(&M1, 0, 0, -2);
 
-    Matrix R = MAT_MUL(&M, &M_I);
-    R.PRINT(&R);
-    R = MAT_MUL(&M_I, &M);
-    R.PRINT(&R);
-    R = M;
-    R.PRINT(&R);
-
-    printf("rov dev check \n");
-    M.ROW_OP(&M, 0, 1, -3./5);
-
-    M.PRINT(&M);
-
-    printf("\n %f \n",det(&M));
+    M1.SWAP(&M1, 0, 1);
+    M1.PRINT(&M1);
+    printf("%f \n",det(&M1) );
 
     return 0;
 }
