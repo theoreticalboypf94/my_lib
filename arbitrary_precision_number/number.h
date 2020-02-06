@@ -30,8 +30,15 @@ Number DEVIDE(Number*, Number*);        // деление
 double Number_to_double(Number*);       // конвертация в число с двойной точностью
 Number double_to_Number(double);        // конвертация числа с двойной точностью в Number
 char* Number_to_string(Number*);        // конвертация в строковое представление
-Number string_to_Number(const char*);         // конвертация строки в Number
+Number string_to_Number(const char*, int);         // конвертация строки в Number
 Number POW(Number*, Number*);           // возведение в степень
 Number SQR(Number*, Number*);           // извлечение произвольного корня.
+void Number_simple_print(Number*);       // простецкий вывод записанного :::::DEBUG:::::
+void Number_move_right(Number*);        // сдвинуть на одну позицию вправо и поменять степень
+void Number_move_right_pos(Number*, int);    // сдвинуть на сколько то позиций вправо
+void Number_move_left(Number*);             // единичный сдвик в лево при условии что старший разряд 0   012 -> 120
+void Number_move_left_pos(Number*, int);    // сдвинуть на сколько то позиций влево
+
+
 
 #endif //ARBITRARY_PRECISION_NUMBER_NUMBER_H
