@@ -1,15 +1,14 @@
 #include <stdio.h>
 #include "number.h"
 #include <malloc.h>
+#include <string.h>
 
 int main() {
-    Number n = string_to_Number("-123.456e-643", 16);
-    Number_simple_print(&n);
-    Number_move_right(&n);
-    Number_simple_print(&n);
+    Number n1 = string_to_Number("-0.00456e+12", 16);
+    Number n2 = string_to_Number("-0.00456e+10", 16);
 
 
-    printf("\n %s", Number_to_string(&n));
+    ADD(&n1, &n2);
 
 
     return 0;
