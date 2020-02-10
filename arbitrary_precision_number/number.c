@@ -14,39 +14,43 @@
 #define E_SYMBOL 1
 #define SIGN_SYMBOL 1
 #define DOT_SYMBOL 1
+/* и количество позиций под знак и степень и одновременно и начальная позиция для нумерации цифр разряда */
+#define SIGN_AND_POWER_CELL 2
+
+#define DEBUG_n
 
 static void itoa(int, char*);
 static void reverse(char* );
 
 Number new_Number(int n_sign){
-    Number result;
-    result.amount_of_signs = n_sign;
-    result.data = (int*) calloc(n_sign + 2, sizeof(int));
-    return result;
+   Number result;
+   result.amount_of_signs = n_sign;
+   result.data = (int*) calloc(n_sign + SIGN_AND_POWER_CELL, sizeof(int));
+   return result;
 }
 
 Number string_to_Number(const char* str, int precision){
-    printf("proof");
-    assert(str != NULL);
-    Number result = new_Number(precision);
+   printf("proof");
+   assert(str != NULL);
+   Number result = new_Number(precision);
 
-    const char* ch_ptr;
-    int* i_ptr;
-    ch_ptr = str;
-    i_ptr = &result.data[2];
+   const char* ch_ptr;
+   int* i_ptr;
+   ch_ptr = str;
+   i_ptr = &result.data[2];
 
-    /* знаки перед точкой */
+   /* знаки перед точкой */
     //warning: pointer/integer type mismatch in conditional expression ликвидировать безобразие
     *ch_ptr == '-' ? *(i_ptr - 2)=-1, ch_ptr++, 1 : (*(i_ptr - 2) = +1);
     *ch_ptr == '+' ? ch_ptr++ : NULL;
 
     int signs_before_dot = 0;
-    while(*ch_ptr != '\0' && *ch_ptr != '.'){
+    while(*ch_ptr != '\0' && *ch_ptr != '.' && *ch_ptr != 'e'){
         signs_before_dot++;
         *i_ptr = (int) *ch_ptr - '0';
         i_ptr++; ch_ptr++;
     }
-    *ch_ptr !='\0'? ch_ptr++ : NULL;
+    (*ch_ptr !='\0' && *ch_ptr !='e')? ch_ptr++ : NULL;
 
     /* знаки после точки ,но перед экспонентой*/
     while (*ch_ptr != '\0' && *ch_ptr != 'e'){
@@ -186,9 +190,47 @@ Number ADD(Number* first, Number* second){
     }
 #undef o1
 #undef o2
+
+#ifdef DEBUG
     Number_simple_print(first);
     Number_simple_print(second);
+#endif
     Number result = new_Number(first->amount_of_signs);
+
+    // сложение двух положительных чисел (точнее чисел с равными знаками)
+    if (first->data[0]*second->data[0] == 1){
+        result.data[0] = first->data[0];
+        result.data[1] = first->data[1];
+
+        // суммирование без учета переполнения разряда
+        for(size_t i=0; i<result.amount_of_signs; i++){
+            result.data[SIGN_AND_POWER_CELL + i] = first->data[SIGN_AND_POWER_CELL+i] +
+                    second->data[SIGN_AND_POWER_CELL + i];
+        }
+
+        // учет переполнения разряда
+        for(size_t i=result.amount_of_signs-1; i>1; i--){
+            result.data[SIGN_AND_POWER_CELL + i - 1] += result.data[SIGN_AND_POWER_CELL+i] / 10;
+            result.data[SIGN_AND_POWER_CELL+i] %= 10;
+        }
+
+        if (result.data[SIGN_AND_POWER_CELL] >= 10){
+            Number_move_right(&result);
+            result.data[SIGN_AND_POWER_CELL] = result.data[SIGN_AND_POWER_CELL+1] / 10;
+            result.data[SIGN_AND_POWER_CELL+1] %= 10;
+        }
+    } else {
+        /*
+         *  Алгоритм такой - из большего мы вычитаем меньшее и устанавливаем нужный знак
+         */
+        Number *big, *small;    // проверка по абсолютной величине
+        int sign;               // знак окончательного ответа
+        //if ()
+
+    }
+
+
+    // сложение одного положительного(большего) и одного отрицательного чисел. (потом)
 
     return result;
 }
@@ -205,6 +247,61 @@ bool EQUAL(Number* first, Number* second){
         if (!result) return result;
     }
     return result;
+}
+
+bool LE(Number* first, Number* second){
+    /*
+     *   first <= second
+     *   хорошенько это надо проверить
+     */
+
+    if(EQUAL(first, second)) return true;
+
+    assert(first->amount_of_signs == second->amount_of_signs);
+    // проверка на разные знаки - после этого полагаем знаки равными
+    if (first->data[0] == -1 && second->data[0] == +1) return true;
+    if (first->data[0] == +1 && second->data[0] == -1) return false;
+
+    if (first->data[1] == second->data[1]) goto equal_power;
+
+    // теперь когда знаки одинаковы - мы должны определить, кто по модулю больше, а дальше анализировать знаки
+    // вначале проверяем на порядок - число с большим порядком - болше по модулю
+    // после этого мы полагаем показатель экспоненты равными
+    if (first->data[1] < second->data[1] && first->data[0] == +1) return true;
+    if (first->data[1] > second->data[1] && first->data[0] == -1) return true;
+    if (first->data[1] > second->data[1] && first->data[0] == +1) return false;
+    if (first->data[1] < second->data[1] && first->data[0] == -1) return false;
+    abort();
+
+    // остается только рассмотреть когда у нас порядки одинаковые
+    equal_power:
+    if (first->data[0] == +1){
+        for (size_t i=0; i<first->amount_of_signs; i++){
+            if (first->data[SIGN_AND_POWER_CELL + i] < second->data[SIGN_AND_POWER_CELL + i]){
+                return true;
+            }
+            if (first->data[SIGN_AND_POWER_CELL + i] > second->data[SIGN_AND_POWER_CELL + i]){
+                return false;
+            }
+        }
+    } else {
+        for (size_t i=0; i<first->amount_of_signs; i++){
+            if (first->data[SIGN_AND_POWER_CELL + i] > second->data[SIGN_AND_POWER_CELL + i]){
+                return true;
+            }
+            if (first->data[SIGN_AND_POWER_CELL + i] < second->data[SIGN_AND_POWER_CELL + i]){
+                return false;
+            }
+        }
+    }
+    return true; // просто чтобы выйти
+}
+
+bool GE(Number* first, Number* second){
+    /*
+     * first >= second;
+     */
+    return LE(second, first);
 }
 
 
