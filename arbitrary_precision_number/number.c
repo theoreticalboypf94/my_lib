@@ -19,8 +19,13 @@
 
 #define DEBUG_n
 
-static void itoa(int, char*);
-static void reverse(char* );
+/* декларация полезных утилит (определенных вконце) */
+static void itoa(int, char*);                   // К&R - реализация
+static void reverse(char* );                    // инверсия строки
+static void __invers_digit_signs(Number*);      // изменения знака у разрядовых цифр
+
+
+/*              Функции             */
 
 Number new_Number(int n_sign){
    Number result;
@@ -224,16 +229,103 @@ Number ADD(Number* first, Number* second){
          *  Алгоритм такой - из большего мы вычитаем меньшее и устанавливаем нужный знак
          */
         Number *big, *small;    // проверка по абсолютной величине
+        Number *negative, *positive;    // указатель на положительное и отрицательное число
         int sign;               // знак окончательного ответа
-        //if ()
+        negative = first->data[0] == -1? first : second;
+        positive = first->data[0] == -1? second : first;
 
+        /* проверка на то, модуль какого числа больше - положительного или отрицательного
+           для этого меняем знак у негативного числа и сравниваем его с позитивным, в случае
+           если модуль отрицательного числа больше - то делаем инверсию знаков - что бывшее положительное
+           число становится отрицательным а бывшее отрицательное положительным, но это изменение должно
+           учитываться в знаке конечного результата
+
+           В итоге мы всегда вычитаем из болшего числа меньшее, а появившиеся отрицательные числа в разря
+           дах мы компенсируем уменьшением числа следующего разряда на 1 и прибавление 10ки к отрицательно
+           му числу в текущем разряде.
+           a,b,-c => a,b-1,10-c
+
+
+         */
+        negative->data[0] = +1;
+        if (LE(negative, positive)){
+            sign = +1;
+            big = positive;
+            small = negative;
+        } else {
+            sign = -1;
+            big = negative;
+            small = positive;
+        }
+
+        __invers_digit_signs(small);
+        // сложение без учета разрядов
+        for(size_t i=0; i<first->amount_of_signs; i++){
+#define SAPC SIGN_AND_POWER_CELL
+            result.data[SAPC + i] = big->data[SAPC + i] + small->data[SAPC + i];
+#undef SAPC
+        }
+
+        // учет наличия отрицательных чисел в разряде
+        // пробегаем от последнего числа к [3]му - [2]е мы не можем трогать - дальше только степень
+        for(size_t i=first->amount_of_signs-1; i>0; i--){
+#define SAPC SIGN_AND_POWER_CELL
+            if (result.data[SAPC+i] < 0){
+                result.data[SAPC+i] += 10;
+                result.data[SAPC+i-1] -= 1;
+            } /* в противном случае ничего не меняем */
+#undef SAPC
+        }
+        assert(sign != 0);
+        result.data[0] = sign;
+        result.data[1] = first->data[1];
     }
-
-
-    // сложение одного положительного(большего) и одного отрицательного чисел. (потом)
-
     return result;
 }
+
+Number SUBSTRACT(Number* first, Number* second){
+    /*
+     * first - second
+     */
+    second->data[0] *= -1;
+    return ADD(first, second);
+}
+
+Number MULTIPLY(Number* first, Number* second){
+    /*
+     * знак - произведение знаков
+     * показатели степени - складываются арифметически
+     * разряды вычисляются следующим образом разряд начинается с [2]
+     *
+     * $ c_{k+2} = \sum_{l=0}^k a_{k-l+2} b_{l+2} $
+     * k from 0 to n-2 - дальше просто борюсь с переполнением разрядов
+     * и в случае необходимости сдвигаем разряды как должно
+     *
+     * если с нужной реперной точки
+     * $ c_{k} = \sum_{l=0}^k a_{k-l} b_{l} $
+     */
+    assert(first->amount_of_signs == second->amount_of_signs);
+    Number result = new_Number(first->amount_of_signs);
+    result.data[0] = first->data[0] * second->data[0];
+    result.data[1] = first->data[1] + second->data[1];
+
+    // вычисление столбиком по формуле
+#define SAPC SIGN_AND_POWER_CELL
+    for(size_t k=0; k<result.amount_of_signs; k++){
+        int intermediate_sum = 0;
+        for(size_t l=0; l<=k; l++){
+            intermediate_sum += first->data[SAPC+k-l]*second->data[SAPC+l];
+        }
+        result.data[SAPC+k] = intermediate_sum;
+    }
+#undef SAPC
+
+    for(size_t k=result.amount_of_signs-1; k>0; k--){
+        if()
+    }
+    return result;
+}
+
 
 bool EQUAL(Number* first, Number* second){
     bool result = true;
@@ -306,6 +398,7 @@ bool GE(Number* first, Number* second){
 
 
 
+/*                  утилиты                  */
 // Спиздил у Ричи и Кернигана
 static void itoa(int n, char *s)
 {
@@ -333,5 +426,12 @@ static void reverse(char* s)
         c = s[i];
         s[i] = s[j];
         s[j] = c;
+    }
+}
+
+// микро утилиты
+static void __invers_digit_signs(Number* n){
+    for(size_t i=0; i<n->amount_of_signs; i++){
+        n->data[SIGN_AND_POWER_CELL + i] *= -1;
     }
 }
