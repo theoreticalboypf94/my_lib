@@ -16,6 +16,8 @@
 #define DOT_SYMBOL 1
 /* и количество позиций под знак и степень и одновременно и начальная позиция для нумерации цифр разряда */
 #define SIGN_AND_POWER_CELL 2
+/* количество итераций в алгоритме деления - еще не определил эмпирически */
+#define LIMIT_OF_ITERATION 100
 
 #define DEBUG_n
 
@@ -23,6 +25,7 @@
 static void itoa(int, char*);                   // К&R - реализация
 static void reverse(char* );                    // инверсия строки
 static void __invers_digit_signs(Number*);      // изменения знака у разрядовых цифр
+static void __init_seq_devide(Number*, Number*);// инициализация первого члена последовательности в алгоритме деления
 
 
 /*              Функции             */
@@ -32,6 +35,13 @@ Number new_Number(int n_sign){
    result.amount_of_signs = n_sign;
    result.data = (int*) calloc(n_sign + SIGN_AND_POWER_CELL, sizeof(int));
    return result;
+}
+
+void del_Number(Number* n){
+    assert(n != NULL);
+    n->amount_of_signs = 0;
+    free(n->data);
+    n = NULL;
 }
 
 Number string_to_Number(const char* str, int precision){
@@ -318,12 +328,89 @@ Number MULTIPLY(Number* first, Number* second){
         }
         result.data[SAPC+k] = intermediate_sum;
     }
-#undef SAPC
 
+    // уничтожаем переполнение
     for(size_t k=result.amount_of_signs-1; k>0; k--){
-        if()
+        if(result.data[SAPC + k] >= 10){
+            int intermediate = result.data[SAPC+k] / 10;
+            result.data[SAPC+k] = result.data[SAPC+k] % 10;
+            result.data[SAPC+k-1] += intermediate;
+        }
     }
+
+    // уничтожаем переполнение в первом-старшем разряде
+    while(result.data[SAPC]>10){
+        Number_move_right(&result);
+        result.data[SAPC] = result.data[SAPC+1] % 10;
+        result.data[SAPC+1] = result.data[SAPC+1] / 10;
+    }
+#undef SAPC
     return result;
+}
+
+Number DEVIDE(Number* first, Number* second){
+    /*
+     *  first / second = first * sign(second) * (1/\y\)
+     *
+     *  используем Ньютонов алгоритм
+     *  $ x_{n+1} = 2*x_{n} - x_{n}*x_{n}*\y\ . тогда  x_n => 1/\y\
+     *
+     *  в качестве x_1 используем приблежение первых четырех знаков выписываем первые 4 знака числа на
+     *  которые делим 10 000 000 / abcd = a'b'c'd'
+     *  x1 = a'b'c'd' ** (-pow(y)-1)
+     *  продолжаем проводить итерацию до момента ABS(x_{n+1} - n_{n}) <  сколько то предпоследний знаков
+     *  в виду неопределенной точности подаваймых чисел - следует жостко привязать критерий остановки
+     *
+     *  Цитата:
+     *  Если мы взяли 10 запасных значащих цифр, то обрывать итерацию следует при совпадении
+     *  ... с точностью до 5 последних знаков. Дело в том, что последние значащие цифры не являются
+     *  верными (они содержат ошибки округления). (Численные методы для физиков теоретиков)
+     *
+     *  Замечание - предполагаю точность большую чем 16 знаков - (иначе нет смысла использовать Числа
+     *  когда можно ограничется использованием double) я бы сказал, что хорошо бы было бы начинать то
+     *  чность с 26 значаших знаков. Чтобы 10 знаков были дополнительными - тогда последние 5 содержат
+     *  ошибку округления
+     *  Замечание 2 - пока предположим, что ошибки округления будут занимать 5 разрядов, тогда
+     *  при постоновке задач, требуется вводить число разрядов, как приемлемый порядок точности
+     *  плюс 10 разрядов, последние пять из которых содержали бы в себе ошибку округления.
+     */
+    assert(first->amount_of_signs == second->amount_of_signs);
+    Number result = new_Number(first->amount_of_signs);
+    Number X_n, X_np1;  // x_{n} x_{n+1}
+    Number Deltha;
+    X_n = new_Number(first->amount_of_signs);
+    X_np1 = new_Number(second->amount_of_signs);
+
+    // инициализация X_n - по алгоритму из книги
+    __init_seq_devide(&X_n, second);
+    printf("\nXn = %s\n",Number_to_string(&X_n));
+    abort();
+
+    int sign_of_second = second->data[0];
+    ABS(second);
+    size_t counter = 0;
+    goto inside_loop;
+
+    /* применение метода ньютона для вычисления 1/|second| */
+    while(Deltha.data[1]>(X_n.data[1]-X_n.amount_of_signs+5) && counter<LIMIT_OF_ITERATION){
+        X_n = X_np1;
+        inside_loop: ;
+        Number term1 = ADD(&X_n, &X_n);
+        Number term2 = MULTIPLY(&X_n, &X_n);
+        term2 = MULTIPLY(&term2, second);
+        X_np1 =  SUBSTRACT(&term1, &term2);
+        counter++;
+        Deltha = SUBSTRACT(&X_n, &X_np1);
+        ABS(&Deltha);
+    }
+    result = MULTIPLY(first, &X_np1);
+
+    result.data[0] = first->data[0] * sign_of_second;
+    return result;
+}
+
+void ABS(Number* n){
+    n->data[0] = +1;
 }
 
 
@@ -434,4 +521,21 @@ static void __invers_digit_signs(Number* n){
     for(size_t i=0; i<n->amount_of_signs; i++){
         n->data[SIGN_AND_POWER_CELL + i] *= -1;
     }
+}
+
+static void __init_seq_devide(Number* n, Number *second){
+    /*
+     * алгоритм из книги "Численные методы для физиков теоретиков"
+     */
+    int sum=0;
+    for(int i=0; i<4; i++){
+        sum = 10*sum + second->data[SIGN_AND_POWER_CELL+i];
+    }
+    int aproximation = 10000000/sum;
+    for(int i=0; i<4; i++){
+        n->data[5-i] = aproximation % 10;
+        aproximation /= 10;
+    }
+    n->data[0] = +1;
+    n->data[1] = -second->data[1] - 1;
 }
