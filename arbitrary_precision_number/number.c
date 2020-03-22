@@ -394,6 +394,7 @@ Number DEVIDE(Number* first, Number* second){
     Number result = new_Number(first->amount_of_signs);
     Number X_n, X_np1;  // x_{n} x_{n+1}
     Number Deltha;
+    size_t counter = 0;
     X_n = new_Number(first->amount_of_signs);
     X_np1 = new_Number(second->amount_of_signs);
 
@@ -401,6 +402,10 @@ Number DEVIDE(Number* first, Number* second){
     __init_seq_devide(&X_n, second);
     printf("\nXn = %s\n",Number_to_string(&X_n));
 
+    while(!EQUAL(&X_n, &X_np1) && counter<LIMIT_OF_ITERATION){
+        NULL;
+    }
+    return result;
 }
 
 void ABS(Number* n){
