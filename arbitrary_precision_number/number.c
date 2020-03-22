@@ -14,10 +14,21 @@
 #define E_SYMBOL 1
 #define SIGN_SYMBOL 1
 #define DOT_SYMBOL 1
+
+/* разряды определенные под отстойник ошибок */
+#define ERROR_ORDER 10
+#define MACHINE_ZERO 2
+
+
 /* и количество позиций под знак и степень и одновременно и начальная позиция для нумерации цифр разряда */
 #define SIGN_AND_POWER_CELL 2
 /* количество итераций в алгоритме деления - еще не определил эмпирически */
 #define LIMIT_OF_ITERATION 100
+
+/*просто акронимы  - в конце должен быть undef */
+#define EO ERROR_ORDER
+#define MZ MACHINE_ZERO
+#define SAPC SIGN_AND_POWER_CELL
 
 #define DEBUG_n
 
@@ -33,7 +44,7 @@ static void __init_seq_devide(Number*, Number*);// инициализация п
 Number new_Number(int n_sign){
    Number result;
    result.amount_of_signs = n_sign;
-   result.data = (int*) calloc(n_sign + SIGN_AND_POWER_CELL, sizeof(int));
+   result.data = (int*) calloc(n_sign + SIGN_AND_POWER_CELL + EO, sizeof(int));
    return result;
 }
 
@@ -54,7 +65,7 @@ Number string_to_Number(const char* str, int precision){
    ch_ptr = str;
    i_ptr = &result.data[2];
 
-   /* знаки перед точкой */
+   /* знаки перед точкой учтена возможность отсутствия + */
     //warning: pointer/integer type mismatch in conditional expression ликвидировать безобразие
     *ch_ptr == '-' ? *(i_ptr - 2)=-1, ch_ptr++, 1 : (*(i_ptr - 2) = +1);
     *ch_ptr == '+' ? ch_ptr++ : NULL;
@@ -84,7 +95,8 @@ Number string_to_Number(const char* str, int precision){
     exp_value *= exp_sign;
 
     /*
-     *  перевод в научную натацию A.BCDEFeA'B'C' - до . остается только одно число
+     *  перевод в научную натацию A.BCDEFeG' - до . остается только одно число
+     *  from ABC.DEFeG to A.BCDEFeG'
      *  мы меняем показатель степени.
      */
     exp_value += (signs_before_dot - 1);
@@ -94,7 +106,6 @@ Number string_to_Number(const char* str, int precision){
     while(result.data[2] == 0){
         Number_move_left(&result);
     }
-
     return result;
 }
 
@@ -120,11 +131,9 @@ char* Number_to_string(Number* input){
     }
     // оптимизация по разрядам
     for(int i=input->amount_of_signs+DOT_SYMBOL-1; i>1; i--){
-        printf("*");
         if (numbers[i] == '0'){
             numbers[i] = 0;
         } else {
-
             break;
         }
     }
@@ -145,21 +154,34 @@ char* Number_to_string(Number* input){
 }
 
 void Number_simple_print(Number *n){
-    printf("amount os numbers %d \n", n->amount_of_signs);
+    printf("amount of numbers %d \n", n->amount_of_signs);
+    printf("amount of error orders %d\n ", EO);
+    printf("sign \t| exp order \t| numbers \t| trash \t| \n");
     int *ptr = n->data;
-    printf(" %d | ", *ptr);
+    printf(" %d \t\t| ", *ptr);
     ptr++;
-    printf("%d | ", *ptr);
+    printf("%d \t\t\t| ", *ptr);
     ptr++;
     for(size_t i=0; i<n->amount_of_signs; i++){
         printf("%d", *ptr);
         ptr++;
     }
+    printf(" \t| ");
+    /* print trash from EO */
+    for(size_t i=0; i<EO; i++){
+        printf("%d", *ptr);
+        ptr++;
+    }
+
     printf("\n");
 }
 
 void Number_move_right(Number* n){
-    int aos = n->amount_of_signs + 2;
+    /*
+     *  хороший вопрос! а должен ли я делать перемещения
+     *  и вообще операции с мусорными числами.
+     */
+    int aos = n->amount_of_signs + SAPC + EO;
     for(size_t i=aos-1; i>2; i--){
         n->data[i] = n->data[i-1];
     }
@@ -175,7 +197,7 @@ void Number_move_right_pos(Number *n, int pos){
 
 void Number_move_left(Number *n){
     assert(n->data[2] == 0); // проверка, чтобы избежать потерии старшего разряда
-    int aos = n->amount_of_signs + 2;
+    int aos = n->amount_of_signs + SAPC + EO;
     for(size_t i=2; i<aos; i++){
         n->data[i] = n->data[i+1];
     }
@@ -194,17 +216,13 @@ Number ADD(Number* first, Number* second){
     assert(first->amount_of_signs == second->amount_of_signs);
 
     // выравниваем порядки
-#define o1 first->data[1]
-#define o2 second->data[1]
-    if(o1 != o2){
-        if (o1 < o2){
-            Number_move_right_pos(first, o2-o1);
+    if(first->data[1] != second->data[1]){
+        if (first->data[1] < second->data[1]){
+            Number_move_right_pos(first, second->data[1]-first->data[1]);
         } else {
-            Number_move_right_pos(second,o1-o2);
+            Number_move_right_pos(second,first->data[1]-second->data[1]);
         }
     }
-#undef o1
-#undef o2
 
 #ifdef DEBUG
     Number_simple_print(first);
@@ -218,21 +236,21 @@ Number ADD(Number* first, Number* second){
         result.data[1] = first->data[1];
 
         // суммирование без учета переполнения разряда
-        for(size_t i=0; i<result.amount_of_signs; i++){
-            result.data[SIGN_AND_POWER_CELL + i] = first->data[SIGN_AND_POWER_CELL+i] +
-                    second->data[SIGN_AND_POWER_CELL + i];
+        for(size_t i=0; i<result.amount_of_signs+EO; i++){
+            result.data[SAPC + i] = first->data[SAPC+i] +
+                    second->data[SAPC + i];
         }
 
         // учет переполнения разряда
-        for(size_t i=result.amount_of_signs-1; i>1; i--){
-            result.data[SIGN_AND_POWER_CELL + i - 1] += result.data[SIGN_AND_POWER_CELL+i] / 10;
-            result.data[SIGN_AND_POWER_CELL+i] %= 10;
+        for(size_t i=SAPC + result.amount_of_signs + EO-1; i>1; i--){
+            result.data[i - 1] += result.data[i] / 10;
+            result.data[i] %= 10;
         }
 
-        if (result.data[SIGN_AND_POWER_CELL] >= 10){
+        if (result.data[SAPC] >= 10){
             Number_move_right(&result);
-            result.data[SIGN_AND_POWER_CELL] = result.data[SIGN_AND_POWER_CELL+1] / 10;
-            result.data[SIGN_AND_POWER_CELL+1] %= 10;
+            result.data[SAPC] = result.data[SAPC+1] / 10;
+            result.data[SAPC+1] %= 10;
         }
     } else {
         /*
@@ -270,25 +288,25 @@ Number ADD(Number* first, Number* second){
 
         __invers_digit_signs(small);
         // сложение без учета разрядов
-        for(size_t i=0; i<first->amount_of_signs; i++){
-#define SAPC SIGN_AND_POWER_CELL
-            result.data[SAPC + i] = big->data[SAPC + i] + small->data[SAPC + i];
-#undef SAPC
+        for(size_t i=0; i<SAPC + first->amount_of_signs + EO; i++){
+            result.data[i] = big->data[i] + small->data[i];
         }
 
         // учет наличия отрицательных чисел в разряде
         // пробегаем от последнего числа к [3]му - [2]е мы не можем трогать - дальше только степень
-        for(size_t i=first->amount_of_signs-1; i>0; i--){
-#define SAPC SIGN_AND_POWER_CELL
-            if (result.data[SAPC+i] < 0){
-                result.data[SAPC+i] += 10;
-                result.data[SAPC+i-1] -= 1;
+        for(size_t i=SAPC + first->amount_of_signs-1 + EO; i>SAPC; i--){
+            if (result.data[i] < 0){
+                result.data[i] += 10;
+                result.data[i-1] -= 1;
             } /* в противном случае ничего не меняем */
-#undef SAPC
         }
         assert(sign != 0);
         result.data[0] = sign;
         result.data[1] = first->data[1];
+    }
+
+    while(result.data[SAPC] == 0 && result.data[1] > 0){
+        Number_move_left(&result);
     }
     return result;
 }
@@ -320,8 +338,7 @@ Number MULTIPLY(Number* first, Number* second){
     result.data[1] = first->data[1] + second->data[1];
 
     // вычисление столбиком по формуле
-#define SAPC SIGN_AND_POWER_CELL
-    for(size_t k=0; k<result.amount_of_signs; k++){
+    for(size_t k=0; k<result.amount_of_signs + EO; k++){
         int intermediate_sum = 0;
         for(size_t l=0; l<=k; l++){
             intermediate_sum += first->data[SAPC+k-l]*second->data[SAPC+l];
@@ -330,7 +347,7 @@ Number MULTIPLY(Number* first, Number* second){
     }
 
     // уничтожаем переполнение
-    for(size_t k=result.amount_of_signs-1; k>0; k--){
+    for(size_t k=result.amount_of_signs + EO -1; k>0; k--){
         if(result.data[SAPC + k] >= 10){
             int intermediate = result.data[SAPC+k] / 10;
             result.data[SAPC+k] = result.data[SAPC+k] % 10;
@@ -344,7 +361,6 @@ Number MULTIPLY(Number* first, Number* second){
         result.data[SAPC] = result.data[SAPC+1] % 10;
         result.data[SAPC+1] = result.data[SAPC+1] / 10;
     }
-#undef SAPC
     return result;
 }
 
@@ -384,34 +400,21 @@ Number DEVIDE(Number* first, Number* second){
     // инициализация X_n - по алгоритму из книги
     __init_seq_devide(&X_n, second);
     printf("\nXn = %s\n",Number_to_string(&X_n));
-    abort();
 
-    int sign_of_second = second->data[0];
-    ABS(second);
-    size_t counter = 0;
-    goto inside_loop;
-
-    /* применение метода ньютона для вычисления 1/|second| */
-    while(Deltha.data[1]>(X_n.data[1]-X_n.amount_of_signs+5) && counter<LIMIT_OF_ITERATION){
-        X_n = X_np1;
-        inside_loop: ;
-        Number term1 = ADD(&X_n, &X_n);
-        Number term2 = MULTIPLY(&X_n, &X_n);
-        term2 = MULTIPLY(&term2, second);
-        X_np1 =  SUBSTRACT(&term1, &term2);
-        counter++;
-        Deltha = SUBSTRACT(&X_n, &X_np1);
-        ABS(&Deltha);
-    }
-    result = MULTIPLY(first, &X_np1);
-
-    result.data[0] = first->data[0] * sign_of_second;
-    return result;
 }
 
 void ABS(Number* n){
     n->data[0] = +1;
 }
+
+Number Number_copy(Number* copied){
+    Number result = new_Number(copied->amount_of_signs);
+    for(size_t i=0; i<SAPC + copied->amount_of_signs + EO; i++){
+        result.data[i] = copied->data[i];
+    }
+    return result;
+}
+
 
 
 bool EQUAL(Number* first, Number* second){
@@ -420,9 +423,10 @@ bool EQUAL(Number* first, Number* second){
     result = result && first->data[0] == second->data[0] && first->data[1] == second->data[1];
     if (!result) return result;
 
-    // проверка с точностью до последнего числа в "разряде" - выполняет роль помойки
-    for(size_t i=0; i<first->amount_of_signs-2; i++){
-        result = result && first->data[2+i] == second->data[2+i];
+    // проверка с точностью до последнего числа в разряде дальше идет помойка чисел
+    // машинный ноль начинается через 2 знака после значащих разрядов
+    for(size_t i=SAPC; i<SAPC + first->amount_of_signs + MZ ; i++){
+        result = result && first->data[i] == second->data[i];
         if (!result) return result;
     }
     return result;
@@ -434,12 +438,12 @@ bool LE(Number* first, Number* second){
      *   хорошенько это надо проверить
      */
 
-    if(EQUAL(first, second)) return true;
-
     assert(first->amount_of_signs == second->amount_of_signs);
     // проверка на разные знаки - после этого полагаем знаки равными
     if (first->data[0] == -1 && second->data[0] == +1) return true;
     if (first->data[0] == +1 && second->data[0] == -1) return false;
+
+    if(EQUAL(first, second)) return true;
 
     if (first->data[1] == second->data[1]) goto equal_power;
 
@@ -455,20 +459,20 @@ bool LE(Number* first, Number* second){
     // остается только рассмотреть когда у нас порядки одинаковые
     equal_power:
     if (first->data[0] == +1){
-        for (size_t i=0; i<first->amount_of_signs; i++){
-            if (first->data[SIGN_AND_POWER_CELL + i] < second->data[SIGN_AND_POWER_CELL + i]){
+        for (size_t i=0; i<SAPC + first->amount_of_signs + MZ; i++){
+            if (first->data[i] < second->data[i]){
                 return true;
             }
-            if (first->data[SIGN_AND_POWER_CELL + i] > second->data[SIGN_AND_POWER_CELL + i]){
+            if (first->data[i] > second->data[i]){
                 return false;
             }
         }
     } else {
-        for (size_t i=0; i<first->amount_of_signs; i++){
-            if (first->data[SIGN_AND_POWER_CELL + i] > second->data[SIGN_AND_POWER_CELL + i]){
+        for (size_t i=0; i<SAPC + first->amount_of_signs + MZ; i++){
+            if (first->data[i] > second->data[i]){
                 return true;
             }
-            if (first->data[SIGN_AND_POWER_CELL + i] < second->data[SIGN_AND_POWER_CELL + i]){
+            if (first->data[i] < second->data[i]){
                 return false;
             }
         }
@@ -518,8 +522,8 @@ static void reverse(char* s)
 
 // микро утилиты
 static void __invers_digit_signs(Number* n){
-    for(size_t i=0; i<n->amount_of_signs; i++){
-        n->data[SIGN_AND_POWER_CELL + i] *= -1;
+    for(size_t i=0; i<SAPC + n->amount_of_signs + EO; i++){
+        n->data[i] *= -1;
     }
 }
 
