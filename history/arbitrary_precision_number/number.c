@@ -25,12 +25,16 @@
 /* количество итераций в алгоритме деления - еще не определил эмпирически */
 #define LIMIT_OF_ITERATION 100
 
+/* Введенеие в оборот нулевого элемента */
+#define INIT_ZERO_ELEMENT(_arg1, _arg2) Number ZERO = new_Number(_arg1);\
+ZERO.data[0] = +1; ZERO.data[1] = _arg2;\
+
 /*просто акронимы  - в конце должен быть undef */
 #define EO ERROR_ORDER
 #define MZ MACHINE_ZERO
 #define SAPC SIGN_AND_POWER_CELL
 
-#define DEBUG_n
+#define DEBUG
 
 /* декларация полезных утилит (определенных вконце) */
 static void itoa(int, char*);                   // К&R - реализация
@@ -56,7 +60,6 @@ void del_Number(Number* n){
 }
 
 Number string_to_Number(const char* str, int precision){
-   printf("proof");
    assert(str != NULL);
    Number result = new_Number(precision);
 
@@ -224,7 +227,7 @@ Number ADD(Number* first, Number* second){
         }
     }
 
-#ifdef DEBUG
+#ifdef DEBUG_ADD
     Number_simple_print(first);
     Number_simple_print(second);
 #endif
@@ -393,18 +396,34 @@ Number DEVIDE(Number* first, Number* second){
     assert(first->amount_of_signs == second->amount_of_signs);
     Number result = new_Number(first->amount_of_signs);
     Number X_n, X_np1;  // x_{n} x_{n+1}
-    Number Deltha;
-    size_t counter = 0;
     X_n = new_Number(first->amount_of_signs);
-    X_np1 = new_Number(second->amount_of_signs);
+    X_np1 = new_Number(first->amount_of_signs);
+    Number Deltha, tmp1, tmp2;
+    INIT_ZERO_ELEMENT(first->amount_of_signs, first->data[1]);
+    size_t counter = 0;
+    int sign = second->data[0];
 
-    // инициализация X_n - по алгоритму из книги
     __init_seq_devide(&X_n, second);
-    printf("\nXn = %s\n",Number_to_string(&X_n));
 
-    while(!EQUAL(&X_n, &X_np1) && counter<LIMIT_OF_ITERATION){
-        NULL;
+    goto first_iteration; // прыжок на первую итерацию алгоритма деления
+    while(counter++<LIMIT_OF_ITERATION /*&& !(EQUAL(&Deltha,&ZERO))*/){
+        first_iteration:
+        tmp1 = ADD(&X_n, &X_n);
+        tmp2 = MULTIPLY(&X_n, &X_n);
+        tmp2 = MULTIPLY(&tmp2, second);
+        X_np1 = SUBSTRACT(&tmp1, &tmp2);
+
+#ifdef DEBUG
+        printf("counter = %ld \tX_np1 = %s\n", counter, Number_to_string(&X_np1));
+#endif
+        Deltha = SUBSTRACT(&X_np1, &X_n);
+        ABS(&Deltha);
     }
+
+    result = MULTIPLY(first, &X_np1);
+    result.data[0] = sign;
+    result.data[1] = first->data[1] + second->data[1];
+
     return result;
 }
 
@@ -413,6 +432,11 @@ void ABS(Number* n){
 }
 
 Number Number_copy(Number* copied){
+    /*
+     * скопировать значение - и при этом создать новую память
+     * полезно при инициализации - по сути конструктор - не оптимален при использовании
+     * в качестве опера
+     */
     Number result = new_Number(copied->amount_of_signs);
     for(size_t i=0; i<SAPC + copied->amount_of_signs + EO; i++){
         result.data[i] = copied->data[i];
@@ -420,7 +444,20 @@ Number Number_copy(Number* copied){
     return result;
 }
 
+void EQUATE(Number *left, Number* right){
+    /*
+     * производит приравнивание левой части правой
+     * просто знак равенства - использовать нельзя из за того что Number содержит указатель на
+     * память - при приравнивании мы просто копируем указатель на правый элемент равенства
+     *
+     * left = right
+     */
+    assert(left->amount_of_signs == right->amount_of_signs);
 
+    for(size_t i=0; i<left->amount_of_signs+EO; i++){
+        left->data[SAPC + i] = right->data[SAPC + i];
+    }
+}
 
 bool EQUAL(Number* first, Number* second){
     bool result = true;
@@ -536,9 +573,10 @@ static void __init_seq_devide(Number* n, Number *second){
     /*
      * алгоритм из книги "Численные методы для физиков теоретиков"
      */
+    assert(n->data != NULL);
     int sum=0;
     for(int i=0; i<4; i++){
-        sum = 10*sum + second->data[SIGN_AND_POWER_CELL+i];
+        sum = 10*sum + second->data[SAPC+i];
     }
     int aproximation = 10000000/sum;
     for(int i=0; i<4; i++){
