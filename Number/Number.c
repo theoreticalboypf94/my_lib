@@ -6,6 +6,7 @@
 #define AMOUNT nptr->amount_of_signs /* бич макрос */
 #define SIGN nptr->data[0]
 #define POWER nptr->data[1]
+#define NUMBERS &nptr->data[2]  /* указатель на цифры в числе */
 
 /*
  * декларация методов-утилит, полезных внутри других функций
@@ -80,12 +81,19 @@ int get_int_from_Number(Number* nptr, int index){
 }
 
 // ввод вывод в тип числа
-char* Number_to_string(Number* nptr){
+const char* Number_to_string(Number* nptr){
     /*
      *  1 символ на знак  + 1 символ на точку + 1 символ на e + AMOUNT + 11 символов на показатель степени
      *
+     *  метод сделан константным, чтобы не расхуярить указатель на память - а то всему пизда.
      */
-    char result[1+1+1+AMOUNT+11];
+
+    static char*  result; // сделал указатель крепостным этой функции
+    // ??? спасет ли это меня от утечки памяти ???
+    if (result != NULL){
+        free(result);
+    }
+    result = calloc(1+1+1+AMOUNT+11,sizeof(char));
     result[0] = SIGN==+1 ? '+' : '-';
     result[1] = nptr->data[2] - '0';
     result[2] = '.';
@@ -98,12 +106,108 @@ char* Number_to_string(Number* nptr){
     }
     result[4+limit] = 'e'; // 5+limit дальше
     char *tmp_ch_ptr;
+    printf("power == %d ", POWER); // TODO - ошибка происходит где то тут.
     itoa(POWER, tmp_ch_ptr);
     strcat(result, tmp_ch_ptr);
 
     return result;
 }
+void Number_simple_print(Number* nptr){
+    /*
+     * вывод числа без учета ошибочных чисел
+     */
+    printf("amount of signs = %d , errors signs = %d\n", AMOUNT, ERROR);
+    printf("| SIGN | \tPOWER | \t NUMBERS\n");
+    printf("| %c | \t %d |", (SIGN == +1? '+' : '-'), POWER);
+    for (size_t i=0; i<AMOUNT; i++){
+        printf("%d", get_int_from_Number(nptr, i));
+    }
+    printf(" |\n");
+}
+Number string_to_Number(const char* chptr, int amount_of_sign){
+    /*
+     * все возможные формы записи
+     * 1.234
+     * -1.234
+     * 1.234e123
+     * -1.234e123
+     * 1.234e-123
+     * 123.4
+     * 123.4e-123
+     * -123.4e-123
+     * 123
+     * -123e123
+     * 0.00000123
+     * 0.00000123
+     *
+     * реализация конечного автомата
+     * A - ablhabit {'0'..'9','.','e','+','-'}
+     * S - states  {S_SIGN, S_LEFT, S_RIGHT, S_POWER}
+     *
+     *                    '.'
+     * S_SIGN -> S_LEFT  -> S_RIGHT
+     *              | 'e'     | 'e'
+     *              V         V
+     *           S_POWER  <----
+     * лучше прикреплю картинку к этой хуйне, а то нормально не передать замысел
+     *
+     * код сделан в предположении, что у меня число более точное чем строковое представление, в противном случае
+     * надо переделать программу - добавить счетчик на числа - и обрывать запись (но это потом, если потом)
+     *
+     */
 
+    enum STATE{S_SIGN, S_LEFT, S_RIGHT, S_POWER};
+    enum STATE  state = S_SIGN;
+    Number result = new_Number(amount_of_sign);
+    Number* nptr = &result;                         // для того, чтобы хуярить макросы
+    int *numbers_ptr = NUMBERS;
+    int power_modificator = -1;
+
+    while(*chptr++ != '\0'){
+        printf("* = %c\n", *chptr);
+        switch (state){
+            case S_SIGN:
+                if (*chptr == '+'){
+                    SIGN = 1;
+                } else if (*chptr == '-'){
+                    SIGN = -1;
+                } else {  // если запись началась с числа
+                    SIGN = +1;
+                    *numbers_ptr = (int) (*chptr - '0');
+                    numbers_ptr++;
+                    power_modificator++; // один символ до точки ничего не меняет, каждый последующий увеличивает степень
+                }
+                state = S_LEFT;
+                break;
+            case S_LEFT:
+                if (*chptr >= '0' && *chptr <= '9'){
+                    *numbers_ptr = (int) (*chptr - '0');
+                    numbers_ptr++;
+                } else if (*chptr == 'e'){
+                    state = S_POWER;
+                } else if (*chptr == '.'){
+                    state = S_RIGHT;
+                }
+
+                break;
+            case S_RIGHT:
+                if (*chptr >= '0' && *chptr <= '9'){
+                    *numbers_ptr = (int) (*chptr - '0');
+                    numbers_ptr++;
+                } else if (*chptr == 'e'){
+                    state = S_POWER;
+                }
+
+                break;
+            case S_POWER:
+                POWER = atoi(chptr);
+                goto out_of_finit_automat;
+        }
+    }
+    POWER += power_modificator;
+    out_of_finit_automat:
+    return result;
+}
 
 
 // место для утилит

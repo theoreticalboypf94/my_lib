@@ -3,6 +3,7 @@
 #include "Number.h"
 
 int main() {
-    printf("Hello, World!\n");
+    Number n = string_to_Number("-1234.1234e-1324", 20);
+    Number_simple_print(&n);
     return 0;
 }

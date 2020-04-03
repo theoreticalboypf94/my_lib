@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <stdio.h>
 
 #ifndef NUMBER_NUMBER_H
 #define NUMBER_NUMBER_H
@@ -46,9 +47,9 @@ int get_int_from_Number(Number*, int); // получаем число из ну�
 bool check_correct_number_order(Number*); // проверка корректности разрядового записи числа....TODO.....................-
 
 /* ввод вывод в тип числа */
-char* Number_to_string(Number*); // распечатать число (в научной нотации)
-void simple_print(Number*); // простейшая распечатка (не в научной нотации)
-Number string_to_Number(Number*); // запись строки в число
+const char* Number_to_string(Number*); // распечатать число (в научной нотации)...............................................+
+void Number_simple_print(Number *nptr); // простейшая распечатка (не в научной нотации).............................................+
+Number string_to_Number(const char*, int); // запись строки в число
 
 /* копирование и размножение чисел */
 void MOV(t_N*, t_N*); // копировать данные из правого указателя в левый
@@ -68,10 +69,10 @@ void  POW_2(t_N*, t_N*, t_N*); // возведение в степень 2
 
 
 /* блок функций */
-Number exp(Number*);
-Number cos(Number*);
-Number sin(Number*);
-Number ln (Number*);
+Number expN(Number*);
+Number cosN(Number*);
+Number sinN(Number*);
+Number lnN (Number*);
 
 
 #endif //NUMBER_NUMBER_H
