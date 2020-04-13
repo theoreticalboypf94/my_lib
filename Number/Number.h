@@ -17,16 +17,16 @@
  *                                               1й элемент отвечает за показатель степени в пределах int
  *                                               2й и последующие отвечают за поразрядовое представление числа
  *
- * sign power 0.......amount_of_signs         ERROR
- * [0]  [1]   [2]     [amount_of_signs+1]     [amount_of_signs+1+ERROR]
- * всего длина массива 2 + amount_of_signs + ERROR
- * SAP + AMOUNT + ERROR - 1 - индекс последнего элемента нашей памяти
+ * sign power 0.......amount_of_signs         NUMBER_ERROR
+ * [0]  [1]   [2]     [amount_of_signs+1]     [amount_of_signs+1+NUMBER_ERROR]
+ * всего длина массива 2 + amount_of_signs + NUMBER_ERROR
+ * SAP + AMOUNT + NUMBER_ERROR - 1 - индекс последнего элемента нашей памяти
  * SAP......SAP + AMOUNT -1  - индекс последнего элемента в значащих цифрах
  *
  */
 
 /* интерфейс класса */
-#define ERROR 5 /* разряды выделенные под ошибки */
+#define NUMBER_ERROR 5 /* разряды выделенные под ошибки */
 #define SIGN_AND_POWER 2
 #define SAP SIGN_AND_POWER
 
@@ -49,11 +49,11 @@ bool check_correct_number_order(Number*); // проверка корректно
 /* ввод вывод в тип числа */
 const char* Number_to_string(Number*); // распечатать число (в научной нотации)...............................................+
 void Number_simple_print(Number *nptr); // простейшая распечатка (не в научной нотации).............................................+
-Number string_to_Number(const char*, int); // запись строки в число
+Number string_to_Number(const char*, int); // запись строки в число.....................................................+
 
 /* копирование и размножение чисел */
-void MOV(t_N*, t_N*); // копировать данные из правого указателя в левый
-Number copy_Number(t_N*); // создать копию уже имеющегося числа
+void MOV(t_N*, t_N*); // копировать данные из правого указателя в левый.................................................+
+Number copy_Number(t_N*); // создать копию уже имеющегося числа.........................................................+
 
 /* арифметический блок */
 Number ADD(t_N*, t_N*); // операция сложение
