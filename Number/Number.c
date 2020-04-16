@@ -9,6 +9,7 @@
 #define NUMBERS &nptr->data[2]  /* указатель на цифры в числе */
 #define ABS(x) (((x) >= 0) ? x : -x)  /* вроде не должно хуярить */
 #define SIGN_OF_INT(x)  ((x) > 0) ? +1 : -1
+// #define DBG
 
 /*
  * декларация методов-утилит, полезных внутри других функций
@@ -18,7 +19,7 @@ static void _account_of_signs_in_numbers(Number*, Number*);
 static void _change_sign(Number*);
 static void position_addition(Number*, Number*);
 static void position_alignment(Number*);
-
+static void __ZATRAVKA(Number*, Number*);
 
 static void reverse(char* s);
 static void itoa(int n, char *s);
@@ -34,6 +35,9 @@ Number new_Number(int amount_of_signs){
     Number result;
     result.amount_of_signs = amount_of_signs;
     result.data = calloc(SAP + amount_of_signs + NUMBER_ERROR, sizeof(int));
+#ifdef DBG
+    printf("new_number = length of elements %d\n\n", SAP + amount_of_signs + NUMBER_ERROR);
+#endif
     return result;
 }
 void del_Number(Number* nptr){
@@ -65,9 +69,8 @@ void move_right(Number* nptr){
      * 12.3e+4 => 1.23e+5
      */
     assert(nptr != NULL);
-    assert(nptr->data[2] == 0); // защита от потерии информации
     nptr->data[1]++;
-    for(size_t i= AMOUNT + NUMBER_ERROR - 1; i > 1; i++){
+    for(size_t i= AMOUNT + NUMBER_ERROR - 1; i > 0; i--){
         nptr->data[SAP + i] = nptr->data[SAP + i - 1];
     }
     nptr->data[SAP] = 0;
@@ -194,6 +197,7 @@ Number string_to_Number(const char* chptr, int amount_of_sign){
                 if (*chptr >= '0' && *chptr <= '9'){
                     *numbers_ptr = (int) (*chptr - '0');
                     numbers_ptr++;
+                    power_modificator++;
                 } else if (*chptr == 'e'){
                     state = S_POWER;
                 } else if (*chptr == '.'){
@@ -216,19 +220,26 @@ Number string_to_Number(const char* chptr, int amount_of_sign){
         }
         chptr++;
     }
-    POWER += power_modificator;
     out_of_finit_automat:
+    POWER += power_modificator;
     return result;
 }
 
-// копирование и размножение чисел
+// копирование и размножение чисел [1]
 void MOV(Number* left, Number* right){
+    /*
+     * копирует содержимое правого указателя в левый
+     * аналогично мнемонике mov в ассеблере
+     */
     assert(left->amount_of_signs == right->amount_of_signs);
     for(size_t i=0; i< SAP + left->amount_of_signs + NUMBER_ERROR; i++){
         left->data[i] = right->data[i];
     }
 }
 Number copy_Number(Number* _copy){
+    /*
+     * репликация числа идущая рука об руку с созданием нового
+     */
     Number result = new_Number(_copy->amount_of_signs);
     for(size_t i=0; i< SAP + _copy->amount_of_signs + NUMBER_ERROR; i++){
         result.data[i] = _copy->data[i];
@@ -237,9 +248,9 @@ Number copy_Number(Number* _copy){
 }
 
 // арифметический блок
-Number ADD(Number* first, Number* second){
+void ADD_ptr(Number* result, Number* first, Number* second){
     /*
-     *  сложение левого и правого элемента - используем конечный автомат.
+     *  сложение левого и правого элемента и запись в первый аргумент
      *  1.5e6
      *  2.4e3 => 0.24e4 => 0.024e5 => 0.0024e6 - меньшую степень мы приводим к большей, чтобы не терять знаки
      *  меньшую степень мы сдвигаем вправо
@@ -250,27 +261,135 @@ Number ADD(Number* first, Number* second){
      *      static void position_alignment(Number* nptr)
      */
     assert(first->amount_of_signs == second->amount_of_signs);
-    Number result = new_Number(first->amount_of_signs);
+
+    assert(result != NULL);
+    assert(result->amount_of_signs != 0);
+    assert(result->data != NULL);
+
     // приравниваем показатели степени
     while(first->data[1] != second->data[1])
         (first->data[1] < second->data[1]) ? move_right(first) : move_right(second);
     _account_of_signs_in_numbers(first, second);
     // в result - занесена поразрядовая сумма
     // возможно с перегрузками по разрядам, которую мы должны ликвидировать
-    position_addition(&result, first);
-    position_addition(&result, second);
-    position_alignment(&result);
+    position_addition(result, first);
+    position_addition(result, second);
+    position_alignment(result);
+    result->data[1] = first->data[1];
+}
+Number ADD(Number* first, Number* second){
+
+    Number result = new_Number(first->amount_of_signs);
+    ADD_ptr(&result, first, second);
 
     return result;
 }
 
+void SUBSTRACT_ptr(Number* result, Number* first, Number* second){
+    /*
+    * result = first - second
+    */
+    assert(result != NULL);
+    assert(result->amount_of_signs != 0);
+    assert(result->data != NULL);
+    second->data[0] *= -1;
+    ADD_ptr(result, first, second);
+    second->data[0] *= -1; // возвращаем знак к исходному
+}
 Number SUBSTRACT(Number* first, Number* second){
     /*
      * result = first - second
      */
-    second->data[0] *= -1;
-    Number result = ADD(first, second);
-    second->data[0] *= -1; // возвращаем знак к исходному
+
+    Number result = new_Number(first->amount_of_signs);
+    SUBSTRACT_ptr(&result, first, second);
+    return result;
+}
+
+void MUL_ptr(Number* result, Number* first, Number* second){
+    /*
+     * умножение реализуется по следующему алгоритму из книги "численные методы для физиков теоретиков"
+     * $$ C_{k+2} = \sum_{l=0}^{k} a_{k-l+2} * b_{l+2} $$ k from 2 to n-1
+     *
+     * важно, что точность всех аргументов должна совпадать
+     */
+    assert(first->amount_of_signs == second->amount_of_signs);
+    assert(result->amount_of_signs == first->amount_of_signs);
+    assert(result != NULL);
+    assert(result->amount_of_signs != 0);
+    assert(result->data != NULL);
+
+    result->data[0] = first->data[0] * second->data[0];
+    result->data[1] = first->data[1] + second->data[1];
+
+    for(size_t k=0; k < SAP+result->amount_of_signs+NUMBER_ERROR-2; k++){
+        int com_sum = 0;
+        for(size_t l=0; l<=k; l++){
+            com_sum += first->data[k-l+SAP] * second->data[l+SAP];
+        }
+        result->data[SAP+k] = com_sum;
+    }
+
+    // ликвидация порарядовой перегрузки
+    for(size_t k=SAP+result->amount_of_signs+NUMBER_ERROR-1; k>SAP; k--){
+        result->data[k-1] += result->data[k] / 10;
+        result->data[k] = result->data[k] % 10;
+    }
+
+    // ликвидация перегрузки в последнем разряде
+    while(result->data[SAP] > 9){
+        move_right(result);
+        result->data[SAP] = result->data[SAP+1] / 10;
+        result->data[SAP+1] = result->data[SAP+1] % 10;
+    }
+}
+Number MUL(Number* first, Number* second){
+    /*
+     * умножение с возвратом нового числа
+     */
+    assert(first->amount_of_signs == second->amount_of_signs);
+    Number result = new_Number(first->amount_of_signs);
+    MUL_ptr(&result, first, second);
+    return result;
+}
+
+void DEVIDE_ptr(Number* result, Number* first, Number* second){
+    assert(first->amount_of_signs == second->amount_of_signs);
+    assert(result->amount_of_signs == first->amount_of_signs);
+    assert(result != NULL);
+    assert(result->amount_of_signs != 0);
+    assert(result->data != NULL);
+#define LIMIT_OF_ITERATION 10
+
+    size_t counter=0;
+    Number X_n, X_np1;
+    X_n = new_Number(first->amount_of_signs);
+    X_np1 = new_Number(second->amount_of_signs);
+    __ZATRAVKA(&X_n, second);
+
+    result->data[0] = first->data[0] * second->data[0];
+    result->data[1] = first->data[1] - second->data[1];
+
+    __ZATRAVKA(&X_n, second);  // теперь X_n -меньше
+#ifdef DBG
+    Number_simple_print(&X_n);
+#endif
+    // на выходе X_np1 будет равна 1/second
+    while(counter++ < LIMIT_OF_ITERATION){
+        Number tmp1 = ADD(&X_n, &X_n);
+        Number tmp2 = MUL(&X_n, &X_n);
+        MUL_ptr(&tmp2, &tmp2, second);
+        SUBSTRACT_ptr(&X_np1, &tmp1, &tmp2);
+        MOV(&X_n, &X_np1);
+    }
+#undef LIMIT_OF_ITERATION
+    MUL_ptr(result, first, &X_np1);
+    result->data[0] = first->data[0] * second->data[0];
+}
+Number DEVIDE(Number* first, Number* second){
+    assert(first->amount_of_signs == second->amount_of_signs);
+    Number result = new_Number(first->amount_of_signs);
+    DEVIDE_ptr(&result, first, second);
     return result;
 }
 
@@ -362,7 +481,10 @@ static void position_alignment(Number* nptr){
     }
     if (counter == nptr->amount_of_signs) goto finish;  // оптимизационный прыжек
 
-    // теперь мы гарантируем то что старший разряд отличен от нуля - нотация сохранена.
+    // с этого мы гарантируем то что старший разряд отличен от нуля - нотация сохранена.
+
+    //установка правильного знака - определяется старшим разрядом поразрядового суммирования
+    nptr->data[0] = (nptr->data[SAP] >=0) ? +1 : -1;
 
     // приведение к однозначному выражению каждый разряд либо только + либо только -
     // прибавление(вычитание) подстраивается под знак старшего разряда
@@ -392,10 +514,41 @@ static void position_alignment(Number* nptr){
         move_left(nptr);
     }
 
+    // если знак отрицательный то нужно - привести разряды в беззнаковую форму с переносом знака в нужное место
+    if (nptr->data[SAP] <0){
+        // разряды состоят только из отрицательных и нулевых значений
+        for(size_t i=SAP; i<SAP+nptr->amount_of_signs+NUMBER_ERROR-1; i++){
+            assert(nptr->data[i] <= 0);
+            nptr->data[i] *= -1;
+        }
+    }
+
 
     finish:;
 }
 // END ADD_UTILS
+
+// BEGIN DEVIDE_UTILS
+
+static void __ZATRAVKA(Number* init_seq_el, Number* second){
+    /*
+     *  затравочный элемент  для последовательности - на основании "численные методы для физиков теоритеков
+     */
+    int denumenator = second->data[SAP]*1000 + second->data[SAP+1]*100 + second->data[SAP+2]*10 + second->data[SAP+3]*1;
+    init_seq_el->data[0] = +1;
+    init_seq_el->data[1] = - second->data[1] - 1;
+    int zatravka = 10000000 / denumenator;
+    assert(zatravka != 0);
+
+    init_seq_el->data[SAP] =zatravka / 1000;
+    init_seq_el->data[SAP+1] =zatravka / 100;
+    init_seq_el->data[SAP+2] =zatravka / 10;
+    init_seq_el->data[SAP+3] =zatravka / 1;
+
+    // просто страховка
+    if (init_seq_el->data[SAP] == 0)
+        move_left(init_seq_el);
+}
 
 
 // Спиздил у Ричи и Кернигана
@@ -427,3 +580,10 @@ static void reverse(char* s)
         s[j] = c;
     }
 }
+
+
+/*
+ *  [1] - сделана как попытка избежания порочной практики использования оператора присваивания, когда будет
+ *      битовое копирование указателя, но не будет соответствующего изменения памяти, мы просто получим вто
+ *      рой псевдоним области памяти, что просто паршиво.
+ */
