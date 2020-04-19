@@ -9,7 +9,6 @@
 #define NUMBERS &nptr->data[2]  /* указатель на цифры в числе */
 #define ABS(x) (((x) >= 0) ? x : -x)  /* вроде не должно хуярить */
 #define SIGN_OF_INT(x)  ((x) > 0) ? +1 : -1
-// #define DBG
 
 /*
  * декларация методов-утилит, полезных внутри других функций
@@ -19,7 +18,7 @@ static void _account_of_signs_in_numbers(Number*, Number*);
 static void _change_sign(Number*);
 static void position_addition(Number*, Number*);
 static void position_alignment(Number*);
-static void __ZATRAVKA(Number*, Number*);
+void __ZATRAVKA(Number*, Number*);
 
 static void reverse(char* s);
 static void itoa(int n, char *s);
@@ -354,43 +353,93 @@ Number MUL(Number* first, Number* second){
 }
 
 void DEVIDE_ptr(Number* result, Number* first, Number* second){
+    /*
+     *  Алгоритм взят из книги "Численные методы для физиков теоретиков", там реализован алгоритм длеления по методу
+     *  Ньютона Рапсона, сходимость к плавильному ответу квадратичная, каждый следующий щаг приносит 2 новых точных
+     *  знака, важно, что нулевой (затравочный) элемент должен быть меньше, точки сходимости, но это и так понятно
+     *  иначе бесконечный рост - гарантирован
+     *
+     *   result = first / second = first * sign(second) * (1/\y\)
+     *   $$ x_{n+1} = 2*x_{n} - x_{n}*x_{n}*\y\ $$. тогда  x_n => 1/\y\
+     *
+     *  в качестве x_1 используем приблежение первых четырех знаков выписываем первые 4 знака числа на
+     *  которые делим 10 000 000 / abcd = a'b'c'd'
+     *  x1 = a'b'c'd' ** (-pow(y)-1)
+     *  продолжаем проводить итерацию до момента (x_{n+1} == n_{n}) или до исчерпания количества итераций - которых
+     *  нужно примерно в два раза меньше чем количество разрядов
+     *
+     * Цитата:
+     *  Если мы взяли 10 запасных значащих цифр, то обрывать итерацию следует при совпадении
+     *  ... с точностью до 5 последних знаков. Дело в том, что последние значащие цифры не являются
+     *  верными (они содержат ошибки округления). (Численные методы для физиков теоретиков)
+     *
+     *
+     *  {1} - я просто был вынужден наплодить такое количество переменных, текущие реализации алгоритмов деления
+     *  не допускают выражений вида a = a*b - нужно вводить новую переменную, методы которые не используют указатель
+     *  для записи первого аргумента я не применяю - чтобы не получить утечки памяти (а это ой как легко)
+     *  Вообще говоря MUL DEVIDE - и прочие без _ptr являются небезопасными.
+     *
+     *  {2} - равенство в смысле совпадения всех разрядов, кроме последних ERROR_NUMBER 5 разрядов отведенных под ошибки
+     *
+     */
     assert(first->amount_of_signs == second->amount_of_signs);
     assert(result->amount_of_signs == first->amount_of_signs);
     assert(result != NULL);
     assert(result->amount_of_signs != 0);
     assert(result->data != NULL);
-#define LIMIT_OF_ITERATION 10
 
-    size_t counter=0;
     Number X_n, X_np1;
-    X_n = new_Number(first->amount_of_signs);
-    X_np1 = new_Number(second->amount_of_signs);
+    Number tmp1, tmp2, tmp3;  // {1}
+    X_n = new_Number(first->amount_of_signs);   X_n.data[0]   = 1;
+    X_np1 = new_Number(first->amount_of_signs); X_np1.data[0] = 1;
+    tmp1 = new_Number(first->amount_of_signs);  tmp1.data[0]  = 1;
+    tmp2 = new_Number(first->amount_of_signs);  tmp2.data[0]  = 1;
+    tmp3 = new_Number(first->amount_of_signs);  tmp3.data[0]  = 1;
+
     __ZATRAVKA(&X_n, second);
-
-    result->data[0] = first->data[0] * second->data[0];
-    result->data[1] = first->data[1] - second->data[1];
-
-    __ZATRAVKA(&X_n, second);  // теперь X_n -меньше
-#ifdef DBG
-    Number_simple_print(&X_n);
-#endif
-    // на выходе X_np1 будет равна 1/second
-    while(counter++ < LIMIT_OF_ITERATION){
-        Number tmp1 = ADD(&X_n, &X_n);
-        Number tmp2 = MUL(&X_n, &X_n);
-        MUL_ptr(&tmp2, &tmp2, second);
-        SUBSTRACT_ptr(&X_np1, &tmp1, &tmp2);
+    size_t counter=0, number_of_iteration = first->amount_of_signs / 2 + 5; // использую квадратичную сходимость алг.
+    goto inside_loop;
+    while (!EQUAL(&X_n, &X_np1) && counter++ < number_of_iteration){        /* {2} */
         MOV(&X_n, &X_np1);
+        inside_loop:;
+        ADD_ptr(&tmp1, &X_n, &X_n);
+        MUL_ptr(&tmp2, &X_n, &X_n);
+        MUL_ptr(&tmp3, &tmp2, second);
+        SUBSTRACT_ptr(&X_np1, &tmp1, &tmp3);
     }
-#undef LIMIT_OF_ITERATION
-    MUL_ptr(result, first, &X_np1);
-    result->data[0] = first->data[0] * second->data[0];
+    MUL_ptr(result,first, &X_np1);
 }
 Number DEVIDE(Number* first, Number* second){
     assert(first->amount_of_signs == second->amount_of_signs);
     Number result = new_Number(first->amount_of_signs);
     DEVIDE_ptr(&result, first, second);
     return result;
+}
+
+
+// блок знаков неравенства
+bool EQUAL(Number* first, Number* second){
+    assert(first->amount_of_signs == second->amount_of_signs);
+    bool result = true;
+    for(size_t i=0; i<SAP+first->amount_of_signs; i++){
+        result = result && (first->data[i] == second->data[i]);
+        if (!result)
+            return result;
+    }
+    return result;
+}
+
+// вспомогательный блок
+void ZEROFICATION(Number* nptr){
+    /*
+     *  предполагаю, что знак у нуля +
+     */
+    assert(nptr != NULL);
+    for(size_t i=0; i<nptr->amount_of_signs + NUMBER_ERROR; i++){
+        nptr->data[SAP + i] = 0;
+    }
+    nptr->data[1] = 0;
+    nptr->data[0] = +1;
 }
 
 
@@ -530,20 +579,21 @@ static void position_alignment(Number* nptr){
 
 // BEGIN DEVIDE_UTILS
 
-static void __ZATRAVKA(Number* init_seq_el, Number* second){
+void __ZATRAVKA(Number* init_seq_el, Number* second){
     /*
      *  затравочный элемент  для последовательности - на основании "численные методы для физиков теоритеков
      */
     int denumenator = second->data[SAP]*1000 + second->data[SAP+1]*100 + second->data[SAP+2]*10 + second->data[SAP+3]*1;
+
     init_seq_el->data[0] = +1;
     init_seq_el->data[1] = - second->data[1] - 1;
-    int zatravka = 10000000 / denumenator;
+    int zatravka = 10000000 / (denumenator );
     assert(zatravka != 0);
-
-    init_seq_el->data[SAP] =zatravka / 1000;
-    init_seq_el->data[SAP+1] =zatravka / 100;
-    init_seq_el->data[SAP+2] =zatravka / 10;
-    init_seq_el->data[SAP+3] =zatravka / 1;
+    // порязрядовая запись  в две комманды - по этому отход от
+    init_seq_el->data[SAP] =zatravka / 1000;    zatravka -= 1000 * (zatravka / 1000);
+    init_seq_el->data[SAP+1] =zatravka / 100;   zatravka -= 100 * (zatravka / 100);
+    init_seq_el->data[SAP+2] =zatravka / 10;    zatravka -= 10 * (zatravka / 10);
+    init_seq_el->data[SAP+3] =zatravka / 1;     zatravka -= zatravka / 1;
 
     // просто страховка
     if (init_seq_el->data[SAP] == 0)
