@@ -9,6 +9,9 @@
 #define NUMBERS &nptr->data[2]  /* указатель на цифры в числе */
 #define ABS(x) (((x) >= 0) ? x : -x)  /* вроде не должно хуярить */
 #define SIGN_OF_INT(x)  ((x) > 0) ? +1 : -1
+#define INIT_I_UNIT(S) Number I = new_Number(S) /* типичная нотация единичного элемента - нейтральное сложение */
+#define INIT_ZERO(S) Number Z = new_Number(S)  /* новая нотация для нулевого элемента */
+#define POWER_INDEX 1  /* индекс на котором находится показатель степени */
 
 /*
  * декларация методов-утилит, полезных внутри других функций
@@ -18,7 +21,8 @@ static void _account_of_signs_in_numbers(Number*, Number*);
 static void _change_sign(Number*);
 static void position_addition(Number*, Number*);
 static void position_alignment(Number*);
-void __ZATRAVKA(Number*, Number*);
+static void __ZATRAVKA(Number*, Number*);
+static bool prove_Number_order_DBG(Number*);
 
 static void reverse(char* s);
 static void itoa(int n, char *s);
@@ -97,6 +101,12 @@ const char* Number_to_string(Number* nptr){
      *  1 символ на знак  + 1 символ на точку + 1 символ на e + AMOUNT + 11 символов на показатель степени
      *
      *  метод сделан константным, чтобы не расхуярить указатель на память - а то всему пизда.
+     *
+     *  PS - память, которая аллоцируется тут - статичная а значит ты можешь только один раз вызывать функцию с
+     *  printf - потому что тогда printf будет выводить всякий мусор - потому что при следующим вызове Number_to_string
+     *  исходная алоцированная память будет очищена и занята под новую строчку, в то время как принт эф вначале ждет
+     *  передачу всех трех адресов на память для вывода, а этого не произойдет. Аналогично, нельзя давать char* на
+     *  повторные вызовы NtSt иначе будут указывать на мусор, выход в использовании strcat или чего то в этом роде.
      */
 
     static char*  result; // сделал указатель крепостным этой функции
@@ -106,20 +116,20 @@ const char* Number_to_string(Number* nptr){
     }
     result = calloc(1+1+1+AMOUNT+11,sizeof(char));
     result[0] = SIGN==+1 ? '+' : '-';
-    result[1] = nptr->data[2] - '0';
+    result[1] = nptr->data[2] + '0';
     result[2] = '.';
     int limit = _number_not_zero_elements(nptr);
     for(int i=0; i<limit; i++){
-        result[3+i] = nptr->data[3+i] - '0';
+        result[3+i] = nptr->data[3+i] + '0';
     }
     if (limit == 0) {
         result[3] = '0';
     }
-    result[4+limit] = 'e'; // 5+limit дальше
-    char *tmp_ch_ptr;
-    printf("power == %d ", POWER); // TODO - ошибка происходит где то тут.
+    result[3+limit] = 'e'; // 5+limit дальше
+    char *tmp_ch_ptr = calloc(11, sizeof(char));
     itoa(POWER, tmp_ch_ptr);
     strcat(result, tmp_ch_ptr);
+    free(tmp_ch_ptr);
 
     return result;
 }
@@ -167,6 +177,8 @@ Number string_to_Number(const char* chptr, int amount_of_sign){
      *
      * NB - я предполагаю контроль длины вводимого текстового сообщения со стороны пользователя функции
      * иначе беда sigfault или что то такое
+     *
+     *
      *
      */
 
@@ -249,7 +261,7 @@ Number copy_Number(Number* _copy){
 // арифметический блок
 void ADD_ptr(Number* result, Number* first, Number* second){
     /*
-     *  сложение левого и правого элемента и запись в первый аргумент
+     *  сложение левого и правого элемента и запись в первый аргумент (который мы полагаем нулю)
      *  1.5e6
      *  2.4e3 => 0.24e4 => 0.024e5 => 0.0024e6 - меньшую степень мы приводим к большей, чтобы не терять знаки
      *  меньшую степень мы сдвигаем вправо
@@ -264,6 +276,7 @@ void ADD_ptr(Number* result, Number* first, Number* second){
     assert(result != NULL);
     assert(result->amount_of_signs != 0);
     assert(result->data != NULL);
+    ZEROFICATION(result);
 
     // приравниваем показатели степени
     while(first->data[1] != second->data[1])
@@ -273,8 +286,8 @@ void ADD_ptr(Number* result, Number* first, Number* second){
     // возможно с перегрузками по разрядам, которую мы должны ликвидировать
     position_addition(result, first);
     position_addition(result, second);
+    result->data[POWER_INDEX] = first->data[POWER_INDEX];
     position_alignment(result);
-    result->data[1] = first->data[1];
 }
 Number ADD(Number* first, Number* second){
 
@@ -287,10 +300,13 @@ Number ADD(Number* first, Number* second){
 void SUBSTRACT_ptr(Number* result, Number* first, Number* second){
     /*
     * result = first - second
+    * NB - без [1] я по сути реализовываю операцию
+     * result += first - second
     */
     assert(result != NULL);
     assert(result->amount_of_signs != 0);
     assert(result->data != NULL);
+    ZEROFICATION(result);
     second->data[0] *= -1;
     ADD_ptr(result, first, second);
     second->data[0] *= -1; // возвращаем знак к исходному
@@ -317,6 +333,8 @@ void MUL_ptr(Number* result, Number* first, Number* second){
     assert(result != NULL);
     assert(result->amount_of_signs != 0);
     assert(result->data != NULL);
+
+    ZEROFICATION(result); // добавил во избежание ошибки result += first * second
 
     result->data[0] = first->data[0] * second->data[0];
     result->data[1] = first->data[1] + second->data[1];
@@ -361,6 +379,7 @@ void DEVIDE_ptr(Number* result, Number* first, Number* second){
      *
      *   result = first / second = first * sign(second) * (1/\y\)
      *   $$ x_{n+1} = 2*x_{n} - x_{n}*x_{n}*\y\ $$. тогда  x_n => 1/\y\
+     *   x_np1 = tmp1 - tmp3
      *
      *  в качестве x_1 используем приблежение первых четырех знаков выписываем первые 4 знака числа на
      *  которые делим 10 000 000 / abcd = a'b'c'd'
@@ -381,12 +400,18 @@ void DEVIDE_ptr(Number* result, Number* first, Number* second){
      *
      *  {2} - равенство в смысле совпадения всех разрядов, кроме последних ERROR_NUMBER 5 разрядов отведенных под ошибки
      *
+     *  {3} - ошибка заключалась в том что я не очень грамотно реализовал функцию деления (да как и прочие функции)
+     *  дело в том, что по сути я реализовал операцию SUBSTRACT_ptr(*result, *first, *second) полагая, что реализо
+     *  вал операцю result = first - second; в то время, как на самом деле была реализована операция
+     *  result += first - second
+     *
      */
     assert(first->amount_of_signs == second->amount_of_signs);
     assert(result->amount_of_signs == first->amount_of_signs);
     assert(result != NULL);
     assert(result->amount_of_signs != 0);
     assert(result->data != NULL);
+    ZEROFICATION(result);           // все то же самое стримимися избежать ошибки result += first / second
 
     Number X_n, X_np1;
     Number tmp1, tmp2, tmp3;  // {1}
@@ -397,15 +422,20 @@ void DEVIDE_ptr(Number* result, Number* first, Number* second){
     tmp3 = new_Number(first->amount_of_signs);  tmp3.data[0]  = 1;
 
     __ZATRAVKA(&X_n, second);
-    size_t counter=0, number_of_iteration = first->amount_of_signs / 2 + 5; // использую квадратичную сходимость алг.
+    size_t counter=0, number_of_iteration = first->amount_of_signs / 2 + 5;
     goto inside_loop;
     while (!EQUAL(&X_n, &X_np1) && counter++ < number_of_iteration){        /* {2} */
         MOV(&X_n, &X_np1);
         inside_loop:;
-        ADD_ptr(&tmp1, &X_n, &X_n);
+        ADD_ptr(&tmp1, &X_n, &X_n);  // видать тут ошибка
         MUL_ptr(&tmp2, &X_n, &X_n);
         MUL_ptr(&tmp3, &tmp2, second);
-        SUBSTRACT_ptr(&X_np1, &tmp1, &tmp3);
+        SUBSTRACT_ptr(&X_np1, &tmp1, &tmp3);   /* {3} */
+
+        // зануление временных переменных - иначе мы получаем ошибки
+        ZEROFICATION(&tmp1);
+        ZEROFICATION(&tmp2);
+        ZEROFICATION(&tmp3);
     }
     MUL_ptr(result,first, &X_np1);
 }
@@ -414,6 +444,22 @@ Number DEVIDE(Number* first, Number* second){
     Number result = new_Number(first->amount_of_signs);
     DEVIDE_ptr(&result, first, second);
     return result;
+}
+
+void SQR_ptr(Number* result, Number* first, Number* second){
+    /*
+     * реализация алгоритма по возведению в произвольную степень
+     * $$ X_np1 =  (1/N) * ( (N+1)*X_n - X_n**(N+1)*y)$$
+     * N - как я понимаю - целое число - иначе операция X_n**(N+1) - теряет всякий смысл на данном шаге рассмотрения
+     * result = first ** second
+     */
+    assert(_number_not_zero_elements(second) - second->data[1] < 0); // проверку на целочисленность поставленного числа 1.23 & 1.23e2
+    ZEROFICATION(result);
+    Number X_n, X_np1;
+    X_n = new_Number(first->amount_of_signs);
+    X_np1 = new_Number(first->amount_of_signs);
+    size_t number_of_iterations = first->amount_of_signs / 2;
+
 }
 
 
@@ -450,13 +496,13 @@ int _number_not_zero_elements(Number *nptr){
      * 1.23000 - должен дать 2
      */
     int counter=AMOUNT;
-    for(int i=AMOUNT; i<1; i++){
+    for(int i=AMOUNT; i>1; i--){
         if (nptr->data[SAP + i -1]!=0){
             break;
         }
         counter--;
     }
-    return counter;
+    return counter-1;
 }
 
 void _account_of_signs_in_numbers(Number* n1, Number* n2){
@@ -470,6 +516,21 @@ void _account_of_signs_in_numbers(Number* n1, Number* n2){
     if(get_int_from_Number(n2, -2) == -1){
         _change_sign(n2);
     }
+}
+
+static bool prove_Number_order_DBG(Number* nptr){
+    /*
+     *  функция которая проверяет нет ли у нас перегрузки по раздрядам - на тот случай если в разряд к нам
+     *  записанно число больше 9
+     *  true - ошибочных разрядов в числе нет
+     *  false - ошибки присутствуют
+     */
+    bool result = true;
+    for(size_t i=0; i<nptr->amount_of_signs + NUMBER_ERROR; i++){
+        result = result && (nptr->data[SAP + i] <10);
+        if (!result) return result;
+    }
+    return result;
 }
 
 
@@ -491,6 +552,7 @@ static void _change_sign(Number* input){
 static void position_addition(Number* first, Number* second){
     /*
      * поразрядовое сложение чисел, даже с учетом перегрузки разряда
+     * first += second
      */
     for(size_t i=0; i< first->amount_of_signs + NUMBER_ERROR; i++){
         first->data[SAP + i] += second->data[SAP + i];
@@ -508,11 +570,7 @@ static void position_alignment(Number* nptr){
         int position = nptr->data[i];
         if(ABS(position) >= 10){
             nptr->data[i] = position % 10;
-            if (position > 0){
-                nptr->data[i-1] += position / 10;
-            } else {
-                nptr->data[i-1] -= position / 10;
-            }
+            nptr->data[i-1] += position / 10;
         }
     }
 
@@ -524,7 +582,7 @@ static void position_alignment(Number* nptr){
     }
 
     // ликвидация нулевого старшего разряда
-    int counter = 0;    // защита от получения бесконечного цикла из за нулевого результата суммирования TODO вчесть из числа число
+    int counter = 0;    // защита от получения бесконечного цикла из за нулевого результата суммирования
     while (nptr->data[SAP] == 0 && counter++ < nptr->amount_of_signs){
         move_left(nptr);
     }
@@ -538,23 +596,10 @@ static void position_alignment(Number* nptr){
     // приведение к однозначному выражению каждый разряд либо только + либо только -
     // прибавление(вычитание) подстраивается под знак старшего разряда
     for(size_t i=SAP + nptr->amount_of_signs + NUMBER_ERROR; i>SAP; i--){
-        // TODO - потом исправить на оптимальный код - без дубляжа
-        if (nptr->data[SAP]>0){ // ровняем разряды под + , прибавляем 10 и вычитаем из старшего разряда 1
-            if(nptr->data[i] < 0){
-                nptr->data[i] += 10;
-                nptr->data[i-1] -= 1;
-            }
-        } else {
-            if (nptr->data[i] > 0){
-                nptr->data[i] -= 10;
-                nptr->data[i-1] += 1;
-            }
+        if (nptr->data[SAP] * nptr->data[i] < 0){
+            nptr->data[i] += 10 * SIGN_OF_INT(nptr->data[SAP]);
+            nptr->data[i-1] -= 1 * SIGN_OF_INT(nptr->data[SAP]);
         }
-// TODO - проверить эту оптимизацию
-//        if (nptr->data[SAP] * nptr->data[i] < 0){
-//            nptr->data[i] += 10 * SIGN_OF_INT(nptr->data[SAP]);
-//            nptr->data[i-1] -= 1 * SIGN_OF_INT(nptr->data[SAP]);
-//        }
     }
 
     // повторная ликвидация нулевого старшего разряда
@@ -563,6 +608,7 @@ static void position_alignment(Number* nptr){
         move_left(nptr);
     }
 
+    finish:
     // если знак отрицательный то нужно - привести разряды в беззнаковую форму с переносом знака в нужное место
     if (nptr->data[SAP] <0){
         // разряды состоят только из отрицательных и нулевых значений
@@ -571,23 +617,22 @@ static void position_alignment(Number* nptr){
             nptr->data[i] *= -1;
         }
     }
-
-
-    finish:;
 }
 // END ADD_UTILS
 
 // BEGIN DEVIDE_UTILS
-
-void __ZATRAVKA(Number* init_seq_el, Number* second){
+static void __ZATRAVKA(Number* init_seq_el, Number* second){
     /*
      *  затравочный элемент  для последовательности - на основании "численные методы для физиков теоритеков
+     *
+     *  NB. затравка изложенная в книге - не правильная - они адют числа которые являются больше ответа,
+     *  а это разрушает алгоритм ньютона-рапсона из книги, модернизации я помечу [mod]
      */
     int denumenator = second->data[SAP]*1000 + second->data[SAP+1]*100 + second->data[SAP+2]*10 + second->data[SAP+3]*1;
 
     init_seq_el->data[0] = +1;
     init_seq_el->data[1] = - second->data[1] - 1;
-    int zatravka = 10000000 / (denumenator );
+    int zatravka = 10000000 / (denumenator + 1)  -1;        // mod
     assert(zatravka != 0);
     // порязрядовая запись  в две комманды - по этому отход от
     init_seq_el->data[SAP] =zatravka / 1000;    zatravka -= 1000 * (zatravka / 1000);
@@ -599,6 +644,7 @@ void __ZATRAVKA(Number* init_seq_el, Number* second){
     if (init_seq_el->data[SAP] == 0)
         move_left(init_seq_el);
 }
+// END DEVIDE UTILS
 
 
 // Спиздил у Ричи и Кернигана

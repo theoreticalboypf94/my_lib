@@ -1,10 +1,9 @@
-#include <stdio.h>
-
+//
+// Created by alpharius on 27.04.2020.
+//
+// gcc Number_test.c Number.c -o test && ./test
 #include "Number.h"
 #define PRECISION 50
-
-void __ZATRAVKA(Number*, Number*);
-int _number_not_zero_elements(Number*);
 
 
 bool TEST_ADD_UNIT(const char* first, const char* second, const char* result){
@@ -37,9 +36,12 @@ void TEST_ADD(void){
     printf("number of test: %d  , correct from them %d \n", number_of_test, success);
 }
 
-int main() {
-    Number res, a, b;
-    a = string_to_Number("3", 20);
+int main(void){
+    // TEST
     TEST_ADD();
-    return 0;
 }
+
+
+
+
+
