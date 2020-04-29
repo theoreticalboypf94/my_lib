@@ -8,7 +8,7 @@
 #define POWER nptr->data[1]
 #define NUMBERS &nptr->data[2]  /* указатель на цифры в числе */
 #define ABS(x) (((x) >= 0) ? x : -x)  /* вроде не должно хуярить */
-#define SIGN_OF_INT(x)  ((x) > 0) ? +1 : -1
+#define SIGN_OF_INT(x)  (((x) > 0) ? +1 : -1)
 #define INIT_I_UNIT(S) Number I = new_Number(S) /* типичная нотация единичного элемента - нейтральное сложение */
 #define INIT_ZERO(S) Number Z = new_Number(S)  /* новая нотация для нулевого элемента */
 #define POWER_INDEX 1  /* индекс на котором находится показатель степени */
@@ -586,7 +586,7 @@ static void position_alignment(Number* nptr){
     while (nptr->data[SAP] == 0 && counter++ < nptr->amount_of_signs){
         move_left(nptr);
     }
-    if (counter == nptr->amount_of_signs) goto finish;  // оптимизационный прыжек
+    if (counter == nptr->amount_of_signs) goto finish;  // оптимизационный прыжек на случай нуля - но это хуйня.
 
     // с этого мы гарантируем то что старший разряд отличен от нуля - нотация сохранена.
 
@@ -607,16 +607,14 @@ static void position_alignment(Number* nptr){
     while (nptr->data[SAP] == 0 && counter++ < nptr->amount_of_signs){
         move_left(nptr);
     }
-
-    finish:
     // если знак отрицательный то нужно - привести разряды в беззнаковую форму с переносом знака в нужное место
     if (nptr->data[SAP] <0){
         // разряды состоят только из отрицательных и нулевых значений
         for(size_t i=SAP; i<SAP+nptr->amount_of_signs+NUMBER_ERROR-1; i++){
-            assert(nptr->data[i] <= 0);
             nptr->data[i] *= -1;
         }
     }
+    finish:;
 }
 // END ADD_UTILS
 
