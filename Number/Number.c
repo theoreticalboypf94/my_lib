@@ -9,7 +9,8 @@
 #define NUMBERS &nptr->data[2]  /* указатель на цифры в числе */
 #define ABS(x) (((x) >= 0) ? x : -x)  /* вроде не должно хуярить */
 #define SIGN_OF_INT(x)  (((x) > 0) ? +1 : -1)
-#define INIT_I_UNIT(S) Number I = new_Number(S) /* типичная нотация единичного элемента - нейтральное сложение */
+/* типичная нотация единичного элемента - нейтральное сложение */
+#define INIT_I_UNIT(S) Number I = new_Number(S); I.data[0]=1; I.data[1]=0; I.data[2] = 1
 #define INIT_ZERO(S) Number Z = new_Number(S)  /* новая нотация для нулевого элемента */
 #define POWER_INDEX 1  /* индекс на котором находится показатель степени */
 
@@ -38,9 +39,6 @@ Number new_Number(int amount_of_signs){
     Number result;
     result.amount_of_signs = amount_of_signs;
     result.data = calloc(SAP + amount_of_signs + NUMBER_ERROR, sizeof(int));
-#ifdef DBG
-    printf("new_number = length of elements %d\n\n", SAP + amount_of_signs + NUMBER_ERROR);
-#endif
     return result;
 }
 void del_Number(Number* nptr){
@@ -420,8 +418,9 @@ void DEVIDE_ptr(Number* result, Number* first, Number* second){
     tmp1 = new_Number(first->amount_of_signs);  tmp1.data[0]  = 1;
     tmp2 = new_Number(first->amount_of_signs);  tmp2.data[0]  = 1;
     tmp3 = new_Number(first->amount_of_signs);  tmp3.data[0]  = 1;
+    Number Y = copy_Number(second);                 Y.data[0] = 1;
 
-    __ZATRAVKA(&X_n, second);
+    __ZATRAVKA(&X_n, &Y);
     size_t counter=0, number_of_iteration = first->amount_of_signs / 2 + 5;
     goto inside_loop;
     while (!EQUAL(&X_n, &X_np1) && counter++ < number_of_iteration){        /* {2} */
@@ -429,7 +428,7 @@ void DEVIDE_ptr(Number* result, Number* first, Number* second){
         inside_loop:;
         ADD_ptr(&tmp1, &X_n, &X_n);  // видать тут ошибка
         MUL_ptr(&tmp2, &X_n, &X_n);
-        MUL_ptr(&tmp3, &tmp2, second);
+        MUL_ptr(&tmp3, &tmp2, &Y);
         SUBSTRACT_ptr(&X_np1, &tmp1, &tmp3);   /* {3} */
 
         // зануление временных переменных - иначе мы получаем ошибки
@@ -437,6 +436,7 @@ void DEVIDE_ptr(Number* result, Number* first, Number* second){
         ZEROFICATION(&tmp2);
         ZEROFICATION(&tmp3);
     }
+    X_np1.data[0] = second->data[0];    // приравнивание знаков, для совпадения
     MUL_ptr(result,first, &X_np1);
 }
 Number DEVIDE(Number* first, Number* second){
@@ -449,16 +449,28 @@ Number DEVIDE(Number* first, Number* second){
 void SQR_ptr(Number* result, Number* first, Number* second){
     /*
      * реализация алгоритма по возведению в произвольную степень
-     * $$ X_np1 =  (1/N) * ( (N+1)*X_n - X_n**(N+1)*y)$$
+     * $$ X_np1 =  (1/N) * ( (N+1)*X_n - X_n**(N+1)*y)$$    => 1/ N root(y) в конце надо единицу поделить на это число
+     * $$ result = left_devision ( internal_sum*X_n - internal_multiplication*internal_sum*y)
      * N - как я понимаю - целое число - иначе операция X_n**(N+1) - теряет всякий смысл на данном шаге рассмотрения
      * result = first ** second
      */
     assert(_number_not_zero_elements(second) - second->data[1] < 0); // проверку на целочисленность поставленного числа 1.23 & 1.23e2
     ZEROFICATION(result);
+    INIT_I_UNIT(first->amount_of_signs);
+    INIT_ZERO(first->amount_of_signs);
     Number X_n, X_np1;
     X_n = new_Number(first->amount_of_signs);
     X_np1 = new_Number(first->amount_of_signs);
     size_t number_of_iterations = first->amount_of_signs / 2;
+    Number left_division = new_Number(first->amount_of_signs);
+    Number Internal_sum = new_Number(first->amount_of_signs);
+    Number internal_multiplication = new_Number(first->amount_of_signs);
+
+    /* (1/N) */
+    DEVIDE_ptr(&left_division, &I, second);
+    /* (N+1) */
+    ADD_ptr(&Internal_sum, &I, second);
+
 
 }
 
