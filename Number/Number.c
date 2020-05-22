@@ -12,7 +12,11 @@
 /* типичная нотация единичного элемента - нейтральное сложение */
 #define INIT_I_UNIT(S) Number I = new_Number(S); I.data[0]=1; I.data[1]=0; I.data[2] = 1
 #define INIT_ZERO(S) Number Z = new_Number(S)  /* новая нотация для нулевого элемента */
+
 #define POWER_INDEX 1  /* индекс на котором находится показатель степени */
+#define SIGN_AND_POWER 2
+#define SAP SIGN_AND_POWER
+#define MAX_AMOUNT_OF_NUMBERS_IN_INT 11
 
 /*
  * декларация методов-утилит, полезных внутри других функций
@@ -57,8 +61,8 @@ void move_left(Number* nptr){
      * 1.23e+5 => 12.3e+4
      */
     assert(nptr != NULL);
-    assert(nptr->data[2] == 0); // защита от потерии информации
-    nptr->data[1]--;
+    assert(nptr->data[SAP] == 0); // защита от потерии информации
+    POWER--;
     for(size_t i=1; i< nptr->amount_of_signs + NUMBER_ERROR; i++){
         nptr->data[SAP + i - 1] = nptr->data[SAP + i];
     }
@@ -70,7 +74,7 @@ void move_right(Number* nptr){
      * 12.3e+4 => 1.23e+5
      */
     assert(nptr != NULL);
-    nptr->data[1]++;
+    POWER++;
     for(size_t i= AMOUNT + NUMBER_ERROR - 1; i > 0; i--){
         nptr->data[SAP + i] = nptr->data[SAP + i - 1];
     }
@@ -112,7 +116,7 @@ const char* Number_to_string(Number* nptr){
     if (result != NULL){
         free(result);
     }
-    result = calloc(1+1+1+AMOUNT+11,sizeof(char));
+    result = calloc(1+1+1+AMOUNT+MAX_AMOUNT_OF_NUMBERS_IN_INT,sizeof(char));
     result[0] = SIGN==+1 ? '+' : '-';
     result[1] = nptr->data[2] + '0';
     result[2] = '.';
@@ -426,7 +430,7 @@ void DEVIDE_ptr(Number* result, Number* first, Number* second){
     while (!EQUAL(&X_n, &X_np1) && counter++ < number_of_iteration){        /* {2} */
         MOV(&X_n, &X_np1);
         inside_loop:;
-        ADD_ptr(&tmp1, &X_n, &X_n);  // видать тут ошибка
+        ADD_ptr(&tmp1, &X_n, &X_n);
         MUL_ptr(&tmp2, &X_n, &X_n);
         MUL_ptr(&tmp3, &tmp2, &Y);
         SUBSTRACT_ptr(&X_np1, &tmp1, &tmp3);   /* {3} */
@@ -498,6 +502,13 @@ void ZEROFICATION(Number* nptr){
     }
     nptr->data[1] = 0;
     nptr->data[0] = +1;
+}
+void int_to_Number(Number* nptr, int N){
+    int save_length = nptr->amount_of_signs;
+    del_Number(nptr);
+    char str[15];
+    itoa(N,str);
+    *nptr = string_to_Number(str, save_length);
 }
 
 
@@ -645,10 +656,10 @@ static void __ZATRAVKA(Number* init_seq_el, Number* second){
     int zatravka = 10000000 / (denumenator + 1)  -1;        // mod
     assert(zatravka != 0);
     // порязрядовая запись  в две комманды - по этому отход от
-    init_seq_el->data[SAP] =zatravka / 1000;    zatravka -= 1000 * (zatravka / 1000);
-    init_seq_el->data[SAP+1] =zatravka / 100;   zatravka -= 100 * (zatravka / 100);
-    init_seq_el->data[SAP+2] =zatravka / 10;    zatravka -= 10 * (zatravka / 10);
-    init_seq_el->data[SAP+3] =zatravka / 1;     zatravka -= zatravka / 1;
+    init_seq_el->data[SAP] = zatravka / 1000;    zatravka -= 1000 * (zatravka / 1000);
+    init_seq_el->data[SAP+1] = zatravka / 100;   zatravka -= 100 * (zatravka / 100);
+    init_seq_el->data[SAP+2] = zatravka / 10;    zatravka -= 10 * (zatravka / 10);
+    init_seq_el->data[SAP+3] = zatravka / 1;     zatravka -= zatravka / 1;
 
     // просто страховка
     if (init_seq_el->data[SAP] == 0)

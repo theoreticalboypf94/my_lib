@@ -1,6 +1,8 @@
 //
 // Created by alpharius on 02.04.2020.
 //
+#ifndef NUMBER_NUMBER_H
+#define NUMBER_NUMBER_H
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -8,8 +10,11 @@
 #include <string.h>
 #include <stdio.h>
 
-#ifndef NUMBER_NUMBER_H
-#define NUMBER_NUMBER_H
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /*
  *          Класс Чисел
  *
@@ -27,8 +32,7 @@
 
 /* интерфейс класса */
 #define NUMBER_ERROR 5 /* разряды выделенные под ошибки */
-#define SIGN_AND_POWER 2
-#define SAP SIGN_AND_POWER
+
 
 typedef struct t_Number {
     int amount_of_signs;
@@ -73,6 +77,7 @@ bool LE(t_N*, t_N*); // <= .....................................................
 
 /* вспомогательный блок */
 void ZEROFICATION(t_N*); // зануление числа.............................................................................+
+void int_to_Number(t_N*, int); // генерируем число по целому............................................................+
 
 /* блок функций */
 Number expN(Number*);
@@ -80,5 +85,7 @@ Number cosN(Number*);
 Number sinN(Number*);
 Number lnN (Number*);
 
-
+#ifdef __cplusplus
+}
+#endif
 #endif //NUMBER_NUMBER_H

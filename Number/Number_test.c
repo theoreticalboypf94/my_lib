@@ -94,7 +94,7 @@ void TEST_MUL(void){
 }
 
 void TEST_DEVIDE(void){
-    int number_of_test = 7;
+    int number_of_test = 8;
     int success = 0;
     // обнаружил, что string_to_number - переваривает только научную нотацию
     printf("\n DEVIDE_TEST: \n");
@@ -104,8 +104,10 @@ void TEST_DEVIDE(void){
     success += TEST_DEVID_UNIT("-1e2", "1000", "-1e-1");
     success += TEST_DEVID_UNIT("-1e2", "-1000", "1e-1");
     success += TEST_DEVID_UNIT("13.66e-22", "-6.83e-21", "-2e-1");
-    success += TEST_DEVID_UNIT("13.66e-22", "-6.83e-25", "-2e3");
-    success += TEST_DEVID_UNIT("13.66e-22", "-6.83e-25", "-2e3");
+    success += TEST_DEVID_UNIT("13.5", "6.75", "2");
+    success += TEST_DEVID_UNIT("13.5", "6.75e5", "2e-5");
+
+
 
 
     printf("number of test: %d  , correct from them %d \n", number_of_test, success);
@@ -113,10 +115,11 @@ void TEST_DEVIDE(void){
 
 
 
-void UNITED_TEST_OF_Number(void){
+int UNITED_TEST_OF_Number(void){
     TEST_ADD();
     TEST_MUL();
     TEST_DEVIDE();
+    return 0;
 }
 
 
