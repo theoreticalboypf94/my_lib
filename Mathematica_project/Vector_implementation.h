@@ -83,7 +83,7 @@ Vector<T> operator*(U&& u, Vector<T>& v){
     return v*u;
 }
 
-//template <typename T>
-//Vector<T> operator^(const Vector<T>& other){
+//template <typename G>
+//Vector<G> operator^(const Vector<G>& other){
 //
 //}
